@@ -17,7 +17,11 @@ import { useServiceStore } from '../../store/serviceStore';
 import { formatDate } from '../../utils/formatters';
 import ServiceUsageDetails from './ServiceUsageDetails';
 
-const ServiceUsageList: React.FC = () => {
+interface ServiceUsageListProps {
+  documentId?: string;
+}
+
+const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
   const { usageRecords, loading, fetchUsageRecords } = useServiceUsageStore();
   const { services } = useServiceStore();
   
@@ -28,6 +32,12 @@ const ServiceUsageList: React.FC = () => {
       services.length === 0 && useServiceStore.getState().fetchServices(),
     ]);
   }, [fetchUsageRecords, services.length]);
+  
+  // Filter records by document if documentId is provided
+  const filteredRecords = React.useMemo(() => {
+    if (!documentId) return usageRecords;
+    return usageRecords.filter(record => record.document_id === documentId);
+  }, [usageRecords, documentId]);
   const [selectedUsage, setSelectedUsage] = React.useState<any>(null);
   
   const headers = [
@@ -39,13 +49,14 @@ const ServiceUsageList: React.FC = () => {
     { key: 'result', header: 'Result' },
   ];
   
-  const rows = usageRecords.map((record) => {
+  const rows = filteredRecords.map((record) => {
     const service = services.find(s => s.id === record.service_id);
+
     return {
       id: record.id,
       service: service?.name || 'Loading...',
       status: record.status,
-      created_at: formatDate(record.created_at),
+      created_at: formatDate(record.completed_at || record.created_at),
       document: record.document_id ? 'View Document' : 'No Document',
       custom_input: record.custom_input || '-',
       result: record.result ? (
@@ -60,11 +71,15 @@ const ServiceUsageList: React.FC = () => {
     return <Loading />;
   }
   
-  if (usageRecords.length === 0) {
+  if (filteredRecords.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
         <Tag type="cool-gray">No Transactions</Tag>
-        <p className="mt-4">You haven't used any services yet</p>
+        <p className="mt-4">
+          {documentId 
+            ? "No services have been used with this document" 
+            : "You haven't used any services yet"}
+        </p>
       </div>
     );
   }
@@ -113,7 +128,7 @@ const ServiceUsageList: React.FC = () => {
                             renderIcon={Search}
                             iconDescription="View Details"
                             onClick={() => {
-                              const usage = usageRecords.find(r => r.id === row.id);
+                              const usage = filteredRecords.find(r => r.id === row.id);
                               if (usage) setSelectedUsage(usage);
                             }}
                           >

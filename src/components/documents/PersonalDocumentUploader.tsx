@@ -13,7 +13,7 @@ const PersonalDocumentUploader: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploadingStatus, setUploadingStatus] = useState<'uploading' | 'complete' | 'edit' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const { uploadDocument } = usePersonalDocumentStore();
+  const { uploadPersonalDocument: uploadDocument } = usePersonalDocumentStore();
   
   const handleUpload = async () => {
     if (!files.length) return;

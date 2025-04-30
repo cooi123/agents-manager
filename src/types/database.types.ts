@@ -70,6 +70,35 @@ export interface Database {
           user_id?: string
         }
       }
+      personal_documents: {
+        Row: {
+          id: string
+          user_id: string
+          filename: string
+          filesize: number
+          mimetype: string
+          path: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          filename: string
+          filesize: number
+          mimetype: string
+          path: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          filename?: string
+          filesize?: number
+          mimetype?: string
+          path?: string
+          created_at?: string
+        }
+      }
       profiles: {
         Row: {
           id: string
@@ -112,36 +141,9 @@ export interface Database {
           description?: string | null
           user_id?: string
         }
+        
       }
     }
   }
-      personal_documents: {
-        Row: {
-          id: string
-          user_id: string
-          filename: string
-          filesize: number
-          mimetype: string
-          path: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          filename: string
-          filesize: number
-          mimetype: string
-          path: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          filename?: string
-          filesize?: number
-          mimetype?: string
-          path?: string
-          created_at?: string
-        }
-      }
+      
 }

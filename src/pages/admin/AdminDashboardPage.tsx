@@ -7,7 +7,7 @@ import { useUserStore } from '../../store/userStore';
 
 const AdminDashboardPage: React.FC = () => {
   const { projects, fetchAllProjects } = useProjectStore();
-  const { documents, fetchAllDocuments } = useDocumentStore();
+  const { projectDocuments: documents, fetchAllDocuments } = useDocumentStore();
   const { users, fetchUsers } = useUserStore();
   const [loading, setLoading] = useState(true);
   

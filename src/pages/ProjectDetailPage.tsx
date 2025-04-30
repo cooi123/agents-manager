@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Grid, Column, Tile, Loading, Button, Modal } from '@carbon/react';
-import { Upload } from '@carbon/icons-react';
+import { Upload, AddAlt } from '@carbon/icons-react';
 import { useProjectStore } from '../store/projectStore';
 import { useAuthStore } from '../store/authStore';
 import DocumentUploader from '../components/documents/DocumentUploader';
 import DocumentList from '../components/documents/DocumentList';
+import ServiceCard from '../components/services/ServiceCard';
+import ServiceSelector from '../components/services/ServiceSelector';
 import { formatDate } from '../utils/formatters';
+import ServiceRunCard from '../components/services/ServiceRunCard';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +17,7 @@ const ProjectDetailPage: React.FC = () => {
   const { currentProject, loading, fetchProject } = useProjectStore();
   const { user } = useAuthStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isServiceSelectorOpen, setIsServiceSelectorOpen] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   
   useEffect(() => {
@@ -59,6 +63,35 @@ const ProjectDetailPage: React.FC = () => {
           </Tile>
         )}
 
+        {/* Services Section */}
+        <div className="flex justify-between items-center mb-4 mt-8">
+          <h2 className="text-xl font-semibold">Project Services</h2>
+          <Button
+            renderIcon={AddAlt}
+            onClick={() => setIsServiceSelectorOpen(true)}
+          >
+            Manage Services
+          </Button>
+        </div>
+        
+        {currentProject.services && currentProject.services.length > 0 ? (
+          <Grid fullWidth className="mb-8">
+            {currentProject.services.map(service => (
+              <Column key={service.id} lg={4} md={4} sm={4} className="mb-4">
+                <ServiceRunCard service={service} projectId={currentProject.id} />
+              </Column>
+            ))}
+          </Grid>
+        ) : (
+          <Tile className="p-5 mb-8">
+            <p className="text-center text-gray-600 py-4">
+              No services assigned to this project yet.
+              Click "Manage Services" to add services.
+            </p>
+          </Tile>
+        )}
+
+        {/* Documents Section */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Project Documents</h2>
           <Button
@@ -73,6 +106,7 @@ const ProjectDetailPage: React.FC = () => {
           <DocumentList projectId={currentProject.id} />
         </Tile>
 
+        {/* Modals */}
         <Modal
           open={isUploadModalOpen}
           onRequestClose={() => setIsUploadModalOpen(false)}
@@ -82,6 +116,13 @@ const ProjectDetailPage: React.FC = () => {
         >
           <DocumentUploader projectId={currentProject.id} />
         </Modal>
+        
+        {/* Service Selector Modal */}
+        <ServiceSelector 
+          projectId={currentProject.id}
+          open={isServiceSelectorOpen}
+          onClose={() => setIsServiceSelectorOpen(false)}
+        />
       </Column>
     </Grid>
   );

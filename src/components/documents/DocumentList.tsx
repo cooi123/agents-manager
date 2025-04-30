@@ -11,7 +11,7 @@ import {
   Tag,
   Button,
 } from '@carbon/react';
-import { View, Download, List } from '@carbon/icons-react';
+import { View, Download, List, TrashCan } from '@carbon/icons-react';
 import { useDocumentStore } from '../../store/documentStore';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 import DocumentViewer from './DocumentViewer';
@@ -22,7 +22,7 @@ type DocumentListProps = {
 };
 
 const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
-  const { documents, loading, fetchDocuments } = useDocumentStore();
+  const { projectDocuments: documents, loading, fetchDocuments, deleteDocument} = useDocumentStore();
   const [selectedDocument, setSelectedDocument] = React.useState<any>(null);
   const navigate = useNavigate();
   const [isViewerOpen, setIsViewerOpen] = React.useState(false);
@@ -148,6 +148,15 @@ const DocumentList: React.FC<DocumentListProps> = ({ projectId }) => {
                             }}
                           >
                             Download
+                          </Button>
+                          <Button
+                            kind="danger--ghost"
+                            size="sm"
+                            renderIcon={TrashCan}
+                            iconDescription="Delete"
+                            onClick={() => deleteDocument(row.id)}
+                          >
+                            Delete
                           </Button>
                         </div>
                       ) : (
