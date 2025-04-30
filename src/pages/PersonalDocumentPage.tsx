@@ -1,20 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Grid, Column, Tile, Loading, Button, Tag, Dropdown, Modal, TextArea, Stack } from '@carbon/react';
 import { ArrowLeft, Download } from '@carbon/icons-react';
 import { supabase } from '../services/supabase';
-import { useDocumentStore } from '../store/documentStore'; 
-import { useProjectStore } from '../store/projectStore'; 
-import { useServiceStore } from '../store/serviceStore';
 import { useServiceUsageStore } from '../store/serviceUsageStore';
+import { usePersonalDocumentStore } from '../store/personalDocumentStore';
+import { useServiceStore } from '../store/serviceStore';
 import { formatDate, formatFileSize } from '../utils/formatters';
 import ServiceUsageList from '../components/services/ServiceUsageList';
 
-const DocumentPage: React.FC = () => {
-  const { projectId, documentId } = useParams<{ projectId: string; documentId: string }>();
+const PersonalDocumentPage: React.FC = () => {
+  const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
-  const { projectDocuments: documents, loading, fetchDocuments } = useDocumentStore();
-  const { currentProject, fetchProject } = useProjectStore();
+  const { documents, loading, fetchDocuments } = usePersonalDocumentStore();
   const { services, fetchServices } = useServiceStore();
   const { createUsageRecord } = useServiceUsageStore();
   const [document, setDocument] = useState<any>(null);
@@ -27,12 +25,9 @@ const DocumentPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    if (projectId) {
-      fetchProject(projectId);
-      fetchDocuments(projectId);
-      fetchServices();
-    }
-  }, [projectId, fetchProject, fetchDocuments, fetchServices]);
+    fetchDocuments();
+    fetchServices();
+  }, [fetchDocuments]);
 
   useEffect(() => {
     if (documents.length > 0 && documentId) {
@@ -71,7 +66,7 @@ const DocumentPage: React.FC = () => {
     if (!document) return;
     
     try {
-      const { data, error } = await window.supabase.storage
+      const { data, error } = await supabase.storage
         .from('documents')
         .download(document.path);
       
@@ -161,14 +156,13 @@ const DocumentPage: React.FC = () => {
           <Button
             kind="ghost"
             renderIcon={ArrowLeft}
-            onClick={() => navigate(`/projects/${projectId}`)}
+            onClick={() => navigate('/my-documents')}
           >
-            Back to Project
+            Back to Documents
           </Button>
           <Button
             renderIcon={Download}
             onClick={handleDownload}
-            className="mr-2"
           >
             Download
           </Button>
@@ -245,7 +239,6 @@ const DocumentPage: React.FC = () => {
           <ServiceUsageList documentId={documentId} />
         </Tile>
       </Column>
-
       <Modal
         open={isModalOpen}
         onRequestClose={() => {
@@ -289,4 +282,4 @@ const DocumentPage: React.FC = () => {
   );
 };
 
-export default DocumentPage;
+export default PersonalDocumentPage;

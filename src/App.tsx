@@ -14,6 +14,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import DocumentPage from './pages/DocumentPage';
+import PersonalDocumentPage from './pages/PersonalDocumentPage';
 import ServiceTransactionsPage from './pages/ServiceTransactionsPage';
 import MyDocumentsPage from './pages/MyDocumentsPage';
 import ServicesPage from './pages/ServicesPage';
@@ -51,6 +52,7 @@ function App() {
           <Route path="projects" element={<Navigate to="/dashboard" replace />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="my-documents" element={<MyDocumentsPage />} />
+          <Route path="my-documents/:documentId" element={<PersonalDocumentPage />} />
           <Route path="services" element={<ServicesPage />} />
           <Route path="services/transactions" element={<ServiceTransactionsPage />} />
           <Route path="services/:id" element={<ServiceDetailsPage />} />

@@ -15,7 +15,7 @@ import { useDocumentStore } from '../../store/documentStore';
 import { formatDate, formatFileSize } from '../../utils/formatters';
 
 const AdminDocumentList: React.FC = () => {
-  const { documents, loading, fetchAllDocuments } = useDocumentStore();
+  const { projectDocuments: documents, loading, fetchAllDocuments } = useDocumentStore();
   
   useEffect(() => {
     fetchAllDocuments();

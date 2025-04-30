@@ -7,10 +7,12 @@ import {
   Stack,
   InlineNotification,
   ProgressBar,
+  Tabs, Tab
 } from '@carbon/react';
 import { useServiceUsageStore } from '../../store/serviceUsageStore';
 import { usePersonalDocumentStore } from '../../store/personalDocumentStore';
 import { supabase } from '../../services/supabase';
+import DocumentSelector from '../documents/DocumentSelector';
 
 interface ServiceUsageFormProps {
   isOpen: boolean;
@@ -20,41 +22,118 @@ interface ServiceUsageFormProps {
     name: string;
     instructions: string | null;
   };
+  projectId?: boolean;
 }
 
-const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, service }) => {
+const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, service ,projectId}) => {
   const [customInput, setCustomInput] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { createUsageRecord } = useServiceUsageStore();
-  const { uploadDocument } = usePersonalDocumentStore();
+  const { uploadPersonalDocument: uploadDocument } = usePersonalDocumentStore();
+  const [inputError, setInputError] = useState<string | null>(null);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Get the user ID when component mounts
+  React.useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      console.log('User data:', data);
+      if (data.user) {
+        setUserId(data.user.id);
+      }
+    };
+    getUser();
+  }, []);
+  
+  const validateForm = () => {
+    // Clear previous errors
+    setInputError(null);
 
+    // Check if input is empty and no files are uploaded and no documents are selected
+    if (!customInput.trim() && (!files || files.length === 0) && selectedDocumentIds.length === 0) {
+      setInputError("Please provide either text input, upload a document, or select an existing document");
+      return false;
+    }
+    
+    return true;
+  };
+  
   const handleSubmit = async () => {
+    // Validate form before submission
+    if (!validateForm()) {
+      return;
+    }
+    
     try {
       setError(null);
       setUploading(true);
 
-      let documentId = null;
+      let documentIds = [...selectedDocumentIds]; // Start with selected existing documents
+      let documentUrls = [];
 
-      // Upload document if provided
-      let uploadedDoc = null;
-      if (file) {
-        uploadedDoc = await uploadDocument(file);
-        if (!uploadedDoc) throw new Error('Failed to upload document');
-        documentId = uploadedDoc.id;
+      // Upload new documents if provided
+      if (files && files.length > 0) {
+        // Process each file individually
+        for (const file of files) {
+          const uploadedDoc = await uploadDocument(file);
+          if (!uploadedDoc || !uploadedDoc.path) {
+            throw new Error(`Failed to upload document: ${file.name}`);
+          }
+
+          documentIds.push(uploadedDoc.id);
+
+          // Get signed URL for the document
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(uploadedDoc.path, 3600);
+
+          if (signedUrlError) throw signedUrlError;
+          documentUrls.push(signedUrlData.signedUrl);
+        }
       }
 
-      // Make request to service
-      const response = await fetch(service.url, {
+      // Get signed URLs for existing documents
+      if (selectedDocumentIds.length > 0) {
+        // Fetch paths for selected documents
+        const { data: selectedDocs, error: fetchError } = await supabase
+          .from('personal_documents')
+          .select('id, path')
+          .in('id', selectedDocumentIds);
+
+        if (fetchError) throw fetchError;
+
+        // Get signed URLs for each document
+        for (const doc of selectedDocs || []) {
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(doc.path, 3600);
+
+          if (signedUrlError) throw signedUrlError;
+          documentUrls.push(signedUrlData.signedUrl);
+        }
+      }
+
+      // Prepare request payload with arrays for document IDs and URLs
+      const payload = {
+        serviceId: service.id,
+        userId: userId,
+        documentIds: documentIds,
+        customInput: customInput,
+        documentUrls: documentUrls,
+        serviceUrl: service.url,
+        projectId: null // No project ID for personal documents
+      };
+
+      // Make request to the consultant service
+      const response = await fetch('http://localhost:8000/service/run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          topic: customInput,
-          documentUrl: uploadedDoc ? await getDocumentUrl(uploadedDoc.path) : null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -62,22 +141,42 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
       }
 
       const result = await response.json();
-
-      // Create usage record
-      const usageRecord = await createUsageRecord(
-        service.id,
-        documentId,
-        customInput || null,
-        result
-      );
-
-      if (!usageRecord) throw new Error('Failed to create usage record');
-
       onClose();
+      setCustomInput('');
+      setFiles([]);
+      setSelectedDocumentIds([]);
+      setInputError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Clear errors when input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCustomInput(e.target.value);
+    if (inputError) {
+      setInputError(null);
+    }
+  };
+
+  // Clear errors when files change
+  const handleFileChange = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    if (target.files) {
+      setFiles(Array.from(target.files));
+      if (inputError) {
+        setInputError(null);
+      }
+    }
+  };
+
+  // Handle document selection
+  const handleDocumentSelection = (selectedIds: string[]) => {
+    setSelectedDocumentIds(selectedIds);
+    if (inputError && selectedIds.length > 0) {
+      setInputError(null);
     }
   };
 
@@ -89,6 +188,7 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
       primaryButtonText="Submit"
       secondaryButtonText="Cancel"
       onRequestSubmit={handleSubmit}
+      size="lg"
     >
       <Stack gap={7}>
         {error && (
@@ -96,6 +196,15 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
             kind="error"
             title="Error"
             subtitle={error}
+            hideCloseButton
+          />
+        )}
+        
+        {inputError && (
+          <InlineNotification
+            kind="error"
+            title="Validation Error"
+            subtitle={inputError}
             hideCloseButton
           />
         )}
@@ -112,23 +221,39 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
           labelText="Additional Information"
           placeholder="Enter any additional information needed for the service..."
           value={customInput}
-          onChange={(e) => setCustomInput(e.target.value)}
+          onChange={handleInputChange}
           rows={4}
+          invalid={!!inputError && !customInput.trim() && files.length === 0 && selectedDocumentIds.length === 0}
+          invalidText="Input is required if no files are uploaded or selected"
         />
 
-        <FileUploader
-          labelTitle="Upload Document"
-          labelDescription="Max file size: 10MB. Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG"
-          buttonLabel="Add file"
-          accept={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png']}
-          multiple={false}
-          onChange={(e: Event) => {
-            const target = e.target as HTMLInputElement;
-            if (target.files) {
-              setFile(target.files[0]);
-            }
-          }}
-        />
+        <Tabs>
+          <Tab id="upload-new" label="Upload New Files">
+            <FileUploader
+              labelTitle="Upload Document"
+              labelDescription="Max file size: 10MB. Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG"
+              buttonLabel="Add file"
+              accept={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png']}
+              multiple={true}
+              filenameStatus="edit"
+              onChange={handleFileChange}
+            />
+          </Tab>
+          <Tab id="select-existing" label="Select Existing Files">
+            {projectId ? (
+              <DocumentSelector 
+              
+                projectId={projectId}
+                onSelectionChange={handleDocumentSelection} 
+              />
+            ):(
+              <DocumentSelector 
+              userId={userId}
+                onSelectionChange={handleDocumentSelection} 
+              />
+            )}
+          </Tab>
+        </Tabs>
 
         {uploading && (
           <ProgressBar
@@ -140,20 +265,6 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
       </Stack>
     </Modal>
   );
-}
-
-async function getDocumentUrl(path: string): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .createSignedUrl(path, 3600); // 1 hour expiry
-
-    if (error) throw error;
-    return data.signedUrl;
-  } catch (error) {
-    console.error('Error getting signed URL:', error);
-    return null;
-  }
 }
 
 export default ServiceUsageForm;

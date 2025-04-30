@@ -118,23 +118,40 @@ const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClo
           </div>
         )}
 
-        {usage.result && (
-          <div className="py-4">
-            <dt className="text-sm font-medium text-gray-500">Result</dt>
-            <dd className="mt-4">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">
-                  {usage.result.subject}
-                </h2>
-                <div className="prose max-w-none">
-                  <ReactMarkdown>
-                    {usage.result.body}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            </dd>
-          </div>
+{usage.result && (
+  <div className="py-4">
+    <dt className="text-sm font-medium text-gray-500">Result</dt>
+    <dd className="mt-4">
+      <div className="bg-white rounded-lg shadow p-6">
+        {usage.result.subject && (
+          <h2 className="text-xl font-semibold mb-4">
+            {usage.result.subject}
+          </h2>
         )}
+        <div className="prose max-w-none">
+          {usage.result.raw ? (
+            // Render markdown if raw content is available
+            <ReactMarkdown>
+              {usage.result.raw}
+            </ReactMarkdown>
+          ) : usage.result.body ? (
+            // Render body as markdown if available
+            <ReactMarkdown>
+              {usage.result.body}
+            </ReactMarkdown>
+          ) : (
+            // Otherwise pretty-print the JSON
+            <pre className="bg-gray-50 p-4 rounded overflow-auto">
+              <code>
+                {JSON.stringify(usage.result, null, 2)}
+              </code>
+            </pre>
+          )}
+        </div>
+      </div>
+    </dd>
+  </div>
+)}
       </dl>
     </Modal>
   );

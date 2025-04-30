@@ -5,7 +5,7 @@ import type { Database } from '../types/database.types';
 type Document = Database['public']['Tables']['documents']['Row'];
 
 interface DocumentState {
-  documents: Document[];
+  projectDocuments: Document[];
   loading: boolean;
   error: string | null;
   fetchDocuments: (projectId: string) => Promise<void>;
@@ -15,7 +15,7 @@ interface DocumentState {
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
-  documents: [],
+  projectDocuments: [],
   loading: false,
   error: null,
 
@@ -29,7 +29,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      set({ documents: data || [], loading: false });
+      set({ projectDocuments: data || [], loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -44,7 +44,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      set({ documents: data || [], loading: false });
+      set({ projectDocuments: data || [], loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -83,9 +83,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
       if (dbError) throw dbError;
 
-      const { documents } = get();
+      const { projectDocuments: documents } = get();
       set({ 
-        documents: [data, ...documents],
+        projectDocuments: [data, ...documents],
         loading: false 
       });
       return data;
@@ -124,9 +124,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
       if (dbError) throw dbError;
 
-      const { documents } = get();
+      const { projectDocuments: documents } = get();
       set({
-        documents: documents.filter(d => d.id !== id),
+        projectDocuments: documents.filter(d => d.id !== id),
         loading: false
       });
       return true;
