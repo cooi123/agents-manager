@@ -13,6 +13,7 @@ import { useServiceUsageStore } from '../../store/serviceUsageStore';
 import { usePersonalDocumentStore } from '../../store/personalDocumentStore';
 import { supabase } from '../../services/supabase';
 import DocumentSelector from '../documents/DocumentSelector';
+import { useDocumentStore } from '../../store/documentStore';
 
 interface ServiceUsageFormProps {
   isOpen: boolean;
@@ -22,19 +23,21 @@ interface ServiceUsageFormProps {
     name: string;
     instructions: string | null;
   };
-  projectId?: boolean;
+  projectId?: string;
 }
-
+const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL || 'http://localhost:8000/run/service';
 const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, service ,projectId}) => {
   const [customInput, setCustomInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { createUsageRecord } = useServiceUsageStore();
-  const { uploadPersonalDocument: uploadDocument } = usePersonalDocumentStore();
+  const { uploadDocument:uploadPersonalDocs} = usePersonalDocumentStore();
+  const { uploadDocument:uploadProjectDocs} = useDocumentStore();
   const [inputError, setInputError] = useState<string | null>(null);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const isPersonalDocument = projectId ? false : true;
   
   // Get the user ID when component mounts
   React.useEffect(() => {
@@ -73,12 +76,29 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
 
       let documentIds = [...selectedDocumentIds]; // Start with selected existing documents
       let documentUrls = [];
-
-      // Upload new documents if provided
-      if (files && files.length > 0) {
-        // Process each file individually
+      if (!projectId) {
+        // Upload new personal documents if provided
         for (const file of files) {
-          const uploadedDoc = await uploadDocument(file);
+          const uploadedDoc = await uploadPersonalDocs(file);
+          if (!uploadedDoc || !uploadedDoc.path) {
+            throw new Error(`Failed to upload document: ${file.name}`);
+          }
+
+          documentIds.push(uploadedDoc.id);
+
+          // Get signed URL for the document
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('personal_documents')
+            .createSignedUrl(uploadedDoc.path, 3600);
+
+          if (signedUrlError) throw signedUrlError;
+          documentUrls.push(signedUrlData.signedUrl);
+        }
+      }
+      else{
+        // Upload new documents if provided
+        for (const file of files) {
+          const uploadedDoc = await uploadProjectDocs(file, projectId);
           if (!uploadedDoc || !uploadedDoc.path) {
             throw new Error(`Failed to upload document: ${file.name}`);
           }
@@ -95,18 +115,31 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
         }
       }
 
+      let selectedDocs: { path: string }[] = [];
+
       // Get signed URLs for existing documents
       if (selectedDocumentIds.length > 0) {
         // Fetch paths for selected documents
-        const { data: selectedDocs, error: fetchError } = await supabase
-          .from('personal_documents')
-          .select('id, path')
-          .in('id', selectedDocumentIds);
-
-        if (fetchError) throw fetchError;
+        if (isPersonalDocument) {
+          const { data, error: fetchError } = await supabase
+            .from('personal_documents')
+            .select('path')
+            .in('id', selectedDocumentIds);
+          if (fetchError) throw fetchError;
+          selectedDocs = data || [];
+        }
+        else {
+          const { data, error: fetchError } = await supabase
+            .from('documents')
+            .select('path')
+            .in('id', selectedDocumentIds);
+          if (fetchError) throw fetchError;
+          selectedDocs = data || [];
+        }
+        console.log('Selected documents:', selectedDocs);
 
         // Get signed URLs for each document
-        for (const doc of selectedDocs || []) {
+        for (const doc of selectedDocs) {
           const { data: signedUrlData, error: signedUrlError } = await supabase.storage
             .from('documents')
             .createSignedUrl(doc.path, 3600);
@@ -124,11 +157,11 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
         customInput: customInput,
         documentUrls: documentUrls,
         serviceUrl: service.url,
-        projectId: null // No project ID for personal documents
+        projectId: projectId
       };
 
       // Make request to the consultant service
-      const response = await fetch('http://localhost:8000/service/run', {
+      const response = await fetch(SERVICE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

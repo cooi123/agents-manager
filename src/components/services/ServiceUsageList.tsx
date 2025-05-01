@@ -104,7 +104,11 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
                   {row.cells.map((cell) => (
                     <TableCell key={cell.id}>
                       {cell.info.header === 'status' ? (
-                        <Tag type={cell.value === 'pending' ? 'blue' : 'green'}>
+                         <Tag type={
+                          cell.value === 'PROCESSING' ? 'blue' : 
+                          cell.value === 'completed' || cell.value === 'SUCCESS' ? 'green' :
+                          'red'  // For failed, error, or any other status
+                        }>
                           {cell.value}
                         </Tag>
                       ) : cell.info.header === 'service' ? (
