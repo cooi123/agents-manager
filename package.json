@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "homepage": "https://cooi123.github.io/agents-manager/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
