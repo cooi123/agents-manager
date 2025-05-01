@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+        env:
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SERVICE_BROKER_URL: ${{ vars.VITE_SERVICE_BROKER_URL }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
