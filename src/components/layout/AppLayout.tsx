@@ -3,14 +3,18 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Content, Loading } from '@carbon/react';
 import { useAuthStore } from '../../store/authStore';
 import AppHeader from './AppHeader';
+import { useUserStore } from '../../store/userStore';
 
 const AppLayout: React.FC = () => {
   const { user, loading, initialized, initialize } = useAuthStore();
+  const {fetchCurrentUser} = useUserStore()
   const navigate = useNavigate();
   
   useEffect(() => {
     if (!initialized) {
       initialize();
+     fetchCurrentUser();
+
     }
   }, [initialized, initialize]);
   

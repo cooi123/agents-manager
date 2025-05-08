@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../services/supabase';
 import { User } from '@supabase/supabase-js';
 import { useUserStore } from './userStore';
+import { useProjectStore } from './projectStore';
 
 type AuthState = {
   user: User | null;  // Supabase auth user
@@ -80,6 +81,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await supabase.auth.signOut();
     set({ user: null, session: null });
     useUserStore.getState().clearUserData();
+    useProjectStore.getState().clearProjectData();
   },
   
   initialize: async () => {

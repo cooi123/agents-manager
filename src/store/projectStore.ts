@@ -14,6 +14,7 @@ interface ProjectState {
   personalProject: Project | null;
   loading: boolean;
   error: string | null;
+  lastFetched: Date | null;
 
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
@@ -29,6 +30,8 @@ interface ProjectState {
 
   // New method for personal project
   fetchPersonalProject: () => Promise<Project | null>;
+
+  clearProjectData: () => void;
 }
 
 
@@ -40,6 +43,7 @@ export const useProjectStore = create<ProjectState>()(
       personalProject: null,
       loading: false,
       error: null,
+      lastFetched: null,
 
       fetchPersonalProject: async () => {
         const { personalProject } = get();
@@ -69,9 +73,8 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       fetchProjects: async () => {
-        const { projects } = get();
-        // Only fetch if we don't have projects
-        if (projects.length > 0) return;
+        //to rehydrate the project store
+        
 
         set({ loading: true, error: null });
         try {
@@ -84,7 +87,6 @@ export const useProjectStore = create<ProjectState>()(
             .eq('user_id', user.id)
             .neq('project_type', 'personal') // Exclude personal project
             .order('created_at', { ascending: false });
-
           if (error) throw error;
           set({ projects: data || [], loading: false });
         } catch (error: any) {
@@ -323,20 +325,29 @@ export const useProjectStore = create<ProjectState>()(
           set({ error: error.message, loading: false });
           return false;
         }
+      },
+
+      clearProjectData: () => {
+        set({
+          projects: [],
+          currentProject: null,
+          loading: false,
+          error: null,
+          lastFetched: null
+        });
       }
     }),
     {
-      name: 'project-storage', // unique name for localStorage
+      name: 'project-storage',
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ 
         projects: state.projects,
         currentProject: state.currentProject,
-        personalProject: state.personalProject
-      }), 
+        personalProject: state.personalProject,
+        lastFetched: state.lastFetched
+      }),
       onRehydrateStorage: () => (state) => {
-        // This runs after the state is rehydrated from storage
         if (state) {
-          // Force refetch of all data
           state.fetchProjects();
         }
       }

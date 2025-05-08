@@ -23,10 +23,10 @@ const ProjectList: React.FC = () => {
   
   useEffect(() => {
     if (user) {
-      fetchProjects(user.id);
+      fetchProjects();
     }
-  }, [fetchProjects, user]);
-  
+  }, [user]);
+  console.log(projects);
   const headers = [
     { key: 'name', header: 'Project Name' },
     { key: 'created_at', header: 'Created' },
@@ -41,7 +41,7 @@ const ProjectList: React.FC = () => {
   }));
   
   const handleRowClick = (rowId: string) => {
-    navigate(`/projects/${rowId}`);
+    navigate(`agents-manager/projects/${rowId}`);
   };
   
   if (loading) {

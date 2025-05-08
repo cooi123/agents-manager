@@ -1,77 +1,92 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Header,
+  HeaderContainer,
   HeaderName,
   HeaderNavigation,
-  HeaderMenuItem,
   HeaderGlobalBar,
   HeaderGlobalAction,
   SkipToContent,
+  HeaderMenuItem,
 } from '@carbon/react';
 import { Logout, User } from '@carbon/icons-react';
 import { useAuthStore } from '../../store/authStore';
-import { useNavigate, Link } from 'react-router-dom';
+import { useUserStore } from '../../store/userStore';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 
 const AppHeader: React.FC = () => {
-  const { user, role, signOut } = useAuthStore();
+  const { signOut } = useAuthStore();
+  const { currentUser, isAdmin } = useUserStore();
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
-  
-  const isAdmin = role === 'admin';
-  
+
+  const isActive = (path: string) => location.pathname.startsWith(path);
+
+
   return (
-    <Header aria-label="Document Management">
+    <Header aria-label="Agent as Service">
       <SkipToContent />
-      <HeaderName element={Link} to="/dashboard" prefix="">
-        Document Manager
+      <HeaderName href="/" prefix="">
+        Agent as Service
       </HeaderName>
-      
-      {user && (
-        <>
-          <HeaderNavigation aria-label="Main Navigation">
-            <HeaderMenuItem element={Link} to="/dashboard">
-              Dashboard
-            </HeaderMenuItem>
-            <HeaderMenuItem element={Link} to="/projects">
-              Projects
-            </HeaderMenuItem>
-            <HeaderMenuItem element={Link} to="/my-documents">
-              My Documents
-            </HeaderMenuItem>
-            <HeaderMenuItem element={Link} to="/services/transactions">
-              Service History
-            </HeaderMenuItem>
-            <HeaderMenuItem element={Link} to="/services">
-              Services
-            </HeaderMenuItem>
-            {isAdmin && (
-              <HeaderMenuItem element={Link} to="/admin">
-                Admin
-              </HeaderMenuItem>
-            )}
-          </HeaderNavigation>
-          
-          <HeaderGlobalBar>
-            <HeaderGlobalAction 
-              aria-label="User Profile" 
-              tooltipAlignment="center"
-              onClick={() => navigate('/profile')}
+      <HeaderNavigation aria-label="Main Navigation">
+        <HeaderMenuItem isCurrentPage={isActive('/dashboard')}>
+          <Link
+            to="/dashboard"
+          >
+            Dashboard
+          </Link>
+        </HeaderMenuItem>
+
+        <HeaderMenuItem isCurrentPage={isActive('/personal')}>
+          <Link
+            to="/personal"
+          >
+            Personal Space
+          </Link>
+        </HeaderMenuItem>
+
+        <HeaderMenuItem isCurrentPage={isActive('/services')}>
+          <Link
+            to="/services"
+          >
+            Service Gallery
+          </Link>
+        </HeaderMenuItem>
+
+        {isAdmin() && (
+          <HeaderMenuItem isCurrentPage={isActive('/admin')}>
+            <Link
+              to="/admin"
             >
-              <User size={20} />
-            </HeaderGlobalAction>
-            <HeaderGlobalAction 
-              aria-label="Log Out" 
-              tooltipAlignment="center"
-              onClick={handleSignOut}
-            >
-              <Logout size={20} />
-            </HeaderGlobalAction>
-          </HeaderGlobalBar>
-        </>
+              Admin
+            </Link>
+          </HeaderMenuItem>
+        )}
+      </HeaderNavigation>
+
+      {currentUser && (
+        <HeaderGlobalBar>
+          <HeaderGlobalAction
+            aria-label="User Profile"
+            tooltipAlignment="center"
+            onClick={() => navigate('/profile')}
+          >
+            <User size={20} />
+          </HeaderGlobalAction>
+          <HeaderGlobalAction
+            aria-label="Log Out"
+            tooltipAlignment="center"
+            onClick={handleSignOut}
+          >
+            <Logout size={20} />
+          </HeaderGlobalAction>
+        </HeaderGlobalBar>
       )}
     </Header>
   );
