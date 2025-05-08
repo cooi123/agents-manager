@@ -39,7 +39,7 @@ function App() {
   }, [initialize, initialized]);
   
   return (
-    <Router>
+    <Router basename="/agents-manager">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -47,15 +47,14 @@ function App() {
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="personal" element={<MyDocumentsPage />} />
+          <Route path="personal/:documentId" element={<PersonalDocumentPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="projects/:projectId/documents/:documentId" element={<DocumentPage />} />
-          <Route path="projects" element={<Navigate to="/dashboard" replace />} />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="my-documents" element={<MyDocumentsPage />} />
-          <Route path="my-documents/:documentId" element={<PersonalDocumentPage />} />
           <Route path="services" element={<ServicesPage />} />
-          <Route path="services/transactions" element={<ServiceTransactionsPage />} />
           <Route path="services/:id" element={<ServiceDetailsPage />} />
+          <Route path="services/transactions" element={<ServiceTransactionsPage />} />
         </Route>
         
         <Route path="/admin" element={<AdminLayout />}>

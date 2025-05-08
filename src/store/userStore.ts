@@ -31,8 +31,8 @@ export const useUserStore = create<UserState>()(
       lastFetched: null,
 
       shouldRefetch: () => {
-        const { lastFetched } = get();
-        if (!lastFetched) return true;
+        const { lastFetched, currentUser } = get();
+        if (!lastFetched || currentUser === null) return true;
         // Refetch if data is older than 5 minutes
         return Date.now() - lastFetched > 5 * 60 * 1000;
       },
