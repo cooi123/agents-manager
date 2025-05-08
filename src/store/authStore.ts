@@ -1,9 +1,11 @@
 import { create } from 'zustand';
-import { supabase, getCurrentUser, getUserRole } from '../services/supabase';
+import { supabase } from '../services/supabase';
+import { User } from '@supabase/supabase-js';
+import { useUserStore } from './userStore';
 
 type AuthState = {
-  user: any | null;
-  role: 'admin' | 'user' | null;
+  user: User | null;  // Supabase auth user
+  session: any | null;  // Auth session
   loading: boolean;
   initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
@@ -14,7 +16,7 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  role: null,
+  session: null,
   loading: true,
   initialized: false,
   
@@ -25,8 +27,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
     
     if (!error && data.user) {
-      const role = await getUserRole();
-      set({ user: data.user, role, loading: false });
+      set({ 
+        user: data.user, 
+        session: data.session,
+        loading: false 
+      });
+      useUserStore.getState().fetchCurrentUser();
     } else {
       set({ loading: false });
     }
@@ -36,39 +42,35 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signUp: async (email, password) => {
     try {
-      // First sign up the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
       
-      if (error) {
-        return { error, user: null };
-      }
+      if (error) return { error, user: null };
+      if (!data.user) return { error: new Error('User creation failed'), user: null };
       
-      if (!data.user) {
-        return { error: new Error('User creation failed'), user: null };
-      }
-      
-      // Create the profile record using service role to bypass RLS
-      // This ensures the profile is created even if RLS would block it
-      const { error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .insert({
           id: data.user.id,
-          email,
-          role: 'user',
-        });
-      
+          email: data.user.email,
+          role: 'user'
+        })
+        .select()
+        .single();
       if (profileError) {
         console.error('Error creating profile:', profileError);
-        return { error: profileError, user: null };
+        throw profileError;
       }
       
-      set({ user: data.user, role: 'user', loading: false });
+      set({ 
+        user: data.user, 
+        session: data.session,
+        loading: false 
+      });
       return { error: null, user: data.user };
     } catch (error: any) {
-      console.error('Sign up error:', error);
       set({ loading: false });
       return { error, user: null };
     }
@@ -76,19 +78,25 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ user: null, role: null });
+    set({ user: null, session: null });
+    useUserStore.getState().clearUserData();
   },
   
   initialize: async () => {
     try {
-      const user = await getCurrentUser();
-      let role = null;
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      set({ 
+        user: user, 
+        session: session,
+        loading: false, 
+        initialized: true 
+      });
       
       if (user) {
-        role = await getUserRole();
+        useUserStore.getState().fetchCurrentUser();
       }
-      
-      set({ user, role, loading: false, initialized: true });
     } catch (error) {
       console.error('Error initializing auth:', error);
       set({ loading: false, initialized: true });

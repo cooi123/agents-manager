@@ -1,7 +1,7 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { supabase } from '../services/supabase';
 import type { Database } from '../types/database.types';
-import { useAuthStore } from './authStore';
 
 type Project = Database['public']['Tables']['projects']['Row'];
 type Service = Database['public']['Tables']['services']['Row'];
@@ -11,12 +11,13 @@ type ProjectWithServices = Project & {
 interface ProjectState {
   projects: Project[];
   currentProject: ProjectWithServices | null;
+  personalProject: Project | null;
   loading: boolean;
   error: string | null;
 
   fetchProjects: () => Promise<void>;
   fetchProject: (id: string) => Promise<Project | null>;
-  createProject: (project: Omit<Project, 'id' | 'created_at'>) => Promise<Project | null>;
+  createProject: (name: string, description?: string) => Promise<Project | null>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<Project | null>;
   deleteProject: (id: string) => Promise<boolean>;
 
@@ -25,322 +26,320 @@ interface ProjectState {
   addServiceToProject: (projectId: string, serviceId: string) => Promise<boolean>;
   removeServiceFromProject: (projectId: string, serviceId: string) => Promise<boolean>;
   updateProjectServices: (projectId: string, serviceIds: string[]) => Promise<boolean>;
+
+  // New method for personal project
+  fetchPersonalProject: () => Promise<Project | null>;
 }
 
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
-  projects: [],
-  currentProject: null,
-  loading: false,
-  error: null,
+export const useProjectStore = create<ProjectState>()(
+  persist(
+    (set, get) => ({
+      projects: [],
+      currentProject: null,
+      personalProject: null,
+      loading: false,
+      error: null,
 
-  fetchProjects: async () => {
-    set({ loading: true, error: null });
-    try {
-      const { user } = useAuthStore.getState();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      fetchPersonalProject: async () => {
+        const { personalProject } = get();
+        // Return cached personal project if it exists
+        if (personalProject) return personalProject;
 
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        set({ loading: true, error: null });
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
 
-      if (error) throw error;
-      set({ projects: data || [], loading: false });
-    } catch (error: any) {
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message || 'Failed to fetch projects';
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('project_type', 'personal')
+            .single();
 
-      console.error('Error fetching projects:', {
-        error,
-        userId: useAuthStore.getState().user?.id
-      });
-
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
-  fetchAllProjects: async () => {
-    set({ loading: true, error: null });
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      set({ projects: data || [], loading: false });
-    } catch (error: any) {
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message || 'Failed to fetch all projects';
-
-      console.error('Error fetching all projects:', error);
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
-  fetchProject: async (id) => {
-    set({ loading: true, error: null });
-    try {
-      // Validate project ID
-      if (!id || typeof id !== 'string' || id.trim() === '') {
-        throw new Error('Invalid project ID');
-      }
-
-      // Validate user authentication
-      const { user } = useAuthStore.getState();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Test Supabase connection first
-      try {
-        await supabase.from('projects').select('count').limit(1);
-      } catch (error: any) {
-        throw new Error('Unable to connect to Supabase. Please check your connection and try again.');
-      }
-
-      // Attempt to fetch the project
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', id.trim())
-        .maybeSingle();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new Error('Project not found');
+          if (error) throw error;
+          
+          set({ personalProject: data, loading: false });
+          return data;
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+          return null;
         }
-        throw error;
+      },
+
+      fetchProjects: async () => {
+        const { projects } = get();
+        // Only fetch if we don't have projects
+        if (projects.length > 0) return;
+
+        set({ loading: true, error: null });
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
+
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', user.id)
+            .neq('project_type', 'personal') // Exclude personal project
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          set({ projects: data || [], loading: false });
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+        }
+      },
+
+      fetchAllProjects: async () => {
+        set({ loading: true, error: null });
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
+
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          set({ projects: data || [], loading: false });
+        } catch (error: any) {
+          const errorMessage = error.message === 'Failed to fetch'
+            ? 'Unable to connect to Supabase. Please check your connection and try again.'
+            : error.message || 'Failed to fetch all projects';
+
+          console.error('Error fetching all projects:', error);
+          set({ error: errorMessage, loading: false });
+        }
+      },
+
+      fetchProject: async (id) => {
+        set({ loading: true, error: null });
+        try {
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+          if (error) throw error;
+          set({ currentProject: data, loading: false });
+          return data;
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+          return null;
+        }
+      },
+
+      fetchProjectServices: async (projectId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from('project_services')
+            .select(`
+              service:services (
+                id,
+                created_at,
+                updated_at,
+                name,
+                url,
+                description,
+                instructions
+              )
+            `)
+            .eq('project_id', projectId);
+
+          if (error) throw error;
+
+          // Transform the nested data structure and cast to Service type
+          return (data?.map(item => item.service) || []) as unknown as Service[];
+        } catch (error: any) {
+          set({ error: error.message });
+          return [];
+        }
+      },
+
+      addServiceToProject: async (projectId: string, serviceId: string) => {
+        try {
+          const { error } = await supabase
+            .from('project_services')
+            .insert({ project_id: projectId, service_id: serviceId });
+
+          if (error) throw error;
+
+          // Update current project's services
+          const { currentProject } = get();
+          if (currentProject && currentProject.id === projectId) {
+            const services = await get().fetchProjectServices(projectId);
+            set({ currentProject: { ...currentProject, services } });
+          }
+
+          return true;
+        } catch (error: any) {
+          set({ error: error.message });
+          return false;
+        }
+      },
+
+      removeServiceFromProject: async (projectId: string, serviceId: string) => {
+        try {
+          const { error } = await supabase
+            .from('project_services')
+            .delete()
+            .eq('project_id', projectId)
+            .eq('service_id', serviceId);
+
+          if (error) throw error;
+
+          // Update current project's services
+          const { currentProject } = get();
+          if (currentProject && currentProject.id === projectId) {
+            const services = await get().fetchProjectServices(projectId);
+            set({ currentProject: { ...currentProject, services } });
+          }
+
+          return true;
+        } catch (error: any) {
+          set({ error: error.message });
+          return false;
+        }
+      },
+
+      updateProjectServices: async (projectId: string, serviceIds: string[]) => {
+        try {
+          // First remove all existing associations
+          await supabase
+            .from('project_services')
+            .delete()
+            .eq('project_id', projectId);
+
+          // Then add all selected services
+          if (serviceIds.length > 0) {
+            const projectServices = serviceIds.map(serviceId => ({
+              project_id: projectId,
+              service_id: serviceId
+            }));
+
+            const { error } = await supabase
+              .from('project_services')
+              .insert(projectServices);
+
+            if (error) throw error;
+          }
+
+          // Update current project's services
+          const { currentProject } = get();
+          if (currentProject && currentProject.id === projectId) {
+            const services = await get().fetchProjectServices(projectId);
+            set({ currentProject: { ...currentProject, services } });
+          }
+
+          return true;
+        } catch (error: any) {
+          set({ error: error.message });
+          return false;
+        }
+      },
+
+      createProject: async (name, description) => {
+        set({ loading: true, error: null });
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('User not authenticated');
+
+          const { data, error } = await supabase
+            .from('projects')
+            .insert({
+              name,
+              description,
+              user_id: user.id,
+              project_type: 'team'
+            })
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          // Update personal project if this is a personal project
+          if (data.project_type === 'personal') {
+            set({ personalProject: data });
+          } else {
+            const { projects } = get();
+            set({ projects: [data, ...projects] });
+          }
+          
+          set({ loading: false });
+          return data;
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+          return null;
+        }
+      },
+
+      updateProject: async (id, updates) => {
+        set({ loading: true, error: null });
+        try {
+          const { data, error } = await supabase
+            .from('projects')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          const { projects } = get();
+          set({
+            projects: projects.map(p => p.id === id ? data : p),
+            currentProject: data,
+            loading: false
+          });
+          return data;
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+          return null;
+        }
+      },
+
+      deleteProject: async (id) => {
+        set({ loading: true, error: null });
+        try {
+          const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+
+          const { projects } = get();
+          set({
+            projects: projects.filter(p => p.id !== id),
+            loading: false
+          });
+          return true;
+        } catch (error: any) {
+          set({ error: error.message, loading: false });
+          return false;
+        }
       }
-
-      if (!data) {
-        set({ currentProject: null, loading: false });
-        throw new Error('Project not found');
+    }),
+    {
+      name: 'project-storage', // unique name for localStorage
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({ 
+        projects: state.projects,
+        currentProject: state.currentProject,
+        personalProject: state.personalProject
+      }), 
+      onRehydrateStorage: () => (state) => {
+        // This runs after the state is rehydrated from storage
+        if (state) {
+          // Force refetch of all data
+          state.fetchProjects();
+        }
       }
-
-      const services = await get().fetchProjectServices(id);
-
-      set({ currentProject: {...data, services}, loading: false });
-      return data;
-    } catch (error: any) {
-      console.error('Error fetching project:', {
-        error,
-        projectId: id,
-        userId: useAuthStore.getState().user?.id
-      });
-
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message;
-
-      set({
-        error: errorMessage,
-        loading: false,
-        currentProject: null
-      });
-      return null;
     }
-  }, 
-  fetchProjectServices: async (projectId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('project_services')
-        .select('services(*)')
-        .eq('project_id', projectId);
-
-      if (error) throw error;
-
-      // Extract services from the join table results
-      return data.map(item => item.services) as Service[];
-    } catch (error: any) {
-      set({ error: error.message });
-      return [];
-    }
-  },
-
-  addServiceToProject: async (projectId: string, serviceId: string) => {
-    try {
-      const { error } = await supabase
-        .from('project_services')
-        .insert({ project_id: projectId, service_id: serviceId });
-
-      if (error) throw error;
-
-      // Update current project's services
-      const { currentProject } = get();
-      if (currentProject && currentProject.id === projectId) {
-        const services = await get().fetchProjectServices(projectId);
-        set({ currentProject: { ...currentProject, services } });
-      }
-
-      return true;
-    } catch (error: any) {
-      set({ error: error.message });
-      return false;
-    }
-  },
-
-  removeServiceFromProject: async (projectId: string, serviceId: string) => {
-    try {
-      const { error } = await supabase
-        .from('project_services')
-        .delete()
-        .eq('project_id', projectId)
-        .eq('service_id', serviceId);
-
-      if (error) throw error;
-
-      // Update current project's services
-      const { currentProject } = get();
-      if (currentProject && currentProject.id === projectId) {
-        const services = await get().fetchProjectServices(projectId);
-        set({ currentProject: { ...currentProject, services } });
-      }
-
-      return true;
-    } catch (error: any) {
-      set({ error: error.message });
-      return false;
-    }
-  },
-
-  updateProjectServices: async (projectId: string, serviceIds: string[]) => {
-    try {
-      // First remove all existing associations
-      await supabase
-        .from('project_services')
-        .delete()
-        .eq('project_id', projectId);
-
-      // Then add all selected services
-      if (serviceIds.length > 0) {
-        const projectServices = serviceIds.map(serviceId => ({
-          project_id: projectId,
-          service_id: serviceId
-        }));
-
-        const { error } = await supabase
-          .from('project_services')
-          .insert(projectServices);
-
-        if (error) throw error;
-      }
-
-      // Update current project's services
-      const { currentProject } = get();
-      if (currentProject && currentProject.id === projectId) {
-        const services = await get().fetchProjectServices(projectId);
-        set({ currentProject: { ...currentProject, services } });
-      }
-
-      return true;
-    } catch (error: any) {
-      set({ error: error.message });
-      return false;
-    }
-  },
-
-  createProject: async (name, description) => {
-    set({ loading: true, error: null });
-    try {
-      const { user } = useAuthStore.getState();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({ name, description, user_id: user.id })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const { projects } = get();
-      set({
-        projects: [data, ...projects],
-        loading: false
-      });
-      return data;
-    } catch (error: any) {
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message || 'Failed to create project';
-
-      console.error('Error creating project:', error);
-      set({ error: errorMessage, loading: false });
-      return null;
-    }
-  },
-
-  updateProject: async (id, updates) => {
-    set({ loading: true, error: null });
-    try {
-      if (!id) {
-        throw new Error('Project ID is required');
-      }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const { projects } = get();
-      set({
-        projects: projects.map(p => p.id === id ? data : p),
-        currentProject: data,
-        loading: false
-      });
-      return data;
-    } catch (error: any) {
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message || 'Failed to update project';
-
-      console.error('Error updating project:', error);
-      set({ error: errorMessage, loading: false });
-      return null;
-    }
-  },
-
-  deleteProject: async (id) => {
-    set({ loading: true, error: null });
-    try {
-      if (!id) {
-        throw new Error('Project ID is required');
-      }
-
-      const { error } = await supabase
-        .from('projects')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      const { projects } = get();
-      set({
-        projects: projects.filter(p => p.id !== id),
-        loading: false
-      });
-      return true;
-    } catch (error: any) {
-      const errorMessage = error.message === 'Failed to fetch'
-        ? 'Unable to connect to Supabase. Please check your connection and try again.'
-        : error.message || 'Failed to delete project';
-
-      console.error('Error deleting project:', error);
-      set({ error: errorMessage, loading: false });
-      return false;
-    }
-  }
-}));
+  )
+);
