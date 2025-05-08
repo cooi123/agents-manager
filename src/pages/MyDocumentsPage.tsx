@@ -1,11 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Grid, Column, Tile, Button, Modal } from '@carbon/react';
+import { Grid, Column, Tile, Button } from '@carbon/react';
 import { Upload } from '@carbon/icons-react';
-import PersonalDocumentList from '../components/documents/PersonalDocumentList';
-import PersonalDocumentUploader from '../components/documents/PersonalDocumentUploader';
+import { useProjectStore } from '../store/projectStore';
+import { useDocumentStore } from '../store/documentStore';
+import DocumentList from '../components/documents/DocumentList';
+import DocumentUploadModal from '../components/documents/DocumentUploadModal';
 
 const MyDocumentsPage: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const { personalProject, fetchPersonalProject } = useProjectStore();
+  const { fetchDocuments } = useDocumentStore();
+
+  useEffect(() => {
+    const initialize = async () => {
+      const project = await fetchPersonalProject();
+      if (project) {
+        await fetchDocuments(project.id);
+      }
+    };
+    
+    initialize();
+  }, []); // Empty dependency array since we only want to run this once on mount
   
   return (
     <Grid fullWidth className="p-5">
@@ -21,18 +36,16 @@ const MyDocumentsPage: React.FC = () => {
         </div>
         
         <Tile className="p-5">
-          <PersonalDocumentList />
+          {personalProject && <DocumentList projectId={personalProject.id} />}
         </Tile>
         
-        <Modal
-          open={isUploadModalOpen}
-          onRequestClose={() => setIsUploadModalOpen(false)}
-          modalHeading="Upload Documents"
-          primaryButtonText="Close"
-          size="lg"
-        >
-          <PersonalDocumentUploader />
-        </Modal>
+        {personalProject && (
+          <DocumentUploadModal
+            isOpen={isUploadModalOpen}
+            onClose={() => setIsUploadModalOpen(false)}
+            projectId={personalProject.id}
+          />
+        )}
       </Column>
     </Grid>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   TextArea,
@@ -10,10 +10,11 @@ import {
   Tabs, Tab
 } from '@carbon/react';
 import { useServiceUsageStore } from '../../store/serviceUsageStore';
-import { usePersonalDocumentStore } from '../../store/personalDocumentStore';
-import { supabase } from '../../services/supabase';
-import DocumentSelector from '../documents/DocumentSelector';
 import { useDocumentStore } from '../../store/documentStore';
+import { useProjectStore } from '../../store/projectStore';
+import { useAuthStore } from '../../store/authStore';
+import DocumentSelector from '../documents/DocumentSelector';
+import { supabase } from '../../services/supabase';
 
 interface ServiceUsageFormProps {
   isOpen: boolean;
@@ -22,40 +23,42 @@ interface ServiceUsageFormProps {
     id: string;
     name: string;
     instructions: string | null;
+    url: string;
   };
   projectId?: string;
 }
-const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL || 'http://localhost:8000/run/service';
-const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, service ,projectId}) => {
+
+const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL;
+
+const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, service, projectId }) => {
   const [customInput, setCustomInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { createUsageRecord } = useServiceUsageStore();
-  const { uploadDocument:uploadPersonalDocs} = usePersonalDocumentStore();
-  const { uploadDocument:uploadProjectDocs} = useDocumentStore();
+  const { uploadDocument } = useDocumentStore();
+  const { user } = useAuthStore();
+  const { projects, fetchProjects } = useProjectStore();
   const [inputError, setInputError] = useState<string | null>(null);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const isPersonalDocument = projectId ? false : true;
   
-  // Get the user ID when component mounts
-  React.useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      console.log('User data:', data);
-      if (data.user) {
-        setUserId(data.user.id);
-      }
+  // Get the personal project when component mounts
+  useEffect(() => {
+    const initialize = async () => {
+      await fetchProjects();
     };
-    getUser();
-  }, []);
+    initialize();
+  }, [fetchProjects]);
+
+  const getProjectId = () => {
+    if (projectId) return projectId;
+    const personalProject = projects.find(p => p.project_type === 'personal');
+    return personalProject?.id;
+  };
   
   const validateForm = () => {
-    // Clear previous errors
     setInputError(null);
 
-    // Check if input is empty and no files are uploaded and no documents are selected
     if (!customInput.trim() && (!files || files.length === 0) && selectedDocumentIds.length === 0) {
       setInputError("Please provide either text input, upload a document, or select an existing document");
       return false;
@@ -65,7 +68,6 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
   };
   
   const handleSubmit = async () => {
-    // Validate form before submission
     if (!validateForm()) {
       return;
     }
@@ -74,71 +76,41 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
       setError(null);
       setUploading(true);
 
-      let documentIds = [...selectedDocumentIds]; // Start with selected existing documents
+      const currentProjectId = getProjectId();
+      if (!currentProjectId) {
+        throw new Error('No project found');
+      }
+
+      let documentIds = [...selectedDocumentIds];
       let documentUrls = [];
-      if (!projectId) {
-        // Upload new personal documents if provided
-        for (const file of files) {
-          const uploadedDoc = await uploadPersonalDocs(file);
-          if (!uploadedDoc || !uploadedDoc.path) {
-            throw new Error(`Failed to upload document: ${file.name}`);
-          }
 
-          documentIds.push(uploadedDoc.id);
-
-          // Get signed URL for the document
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from('personal_documents')
-            .createSignedUrl(uploadedDoc.path, 3600);
-
-          if (signedUrlError) throw signedUrlError;
-          documentUrls.push(signedUrlData.signedUrl);
+      // Upload new documents if provided
+      for (const file of files) {
+        const uploadedDoc = await uploadDocument(file, currentProjectId);
+        if (!uploadedDoc || !uploadedDoc.path) {
+          throw new Error(`Failed to upload document: ${file.name}`);
         }
+
+        documentIds.push(uploadedDoc.id);
+
+        // Get signed URL for the document
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(uploadedDoc.path, 3600);
+
+        if (signedUrlError) throw signedUrlError;
+        documentUrls.push(signedUrlData.signedUrl);
       }
-      else{
-        // Upload new documents if provided
-        for (const file of files) {
-          const uploadedDoc = await uploadProjectDocs(file, projectId);
-          if (!uploadedDoc || !uploadedDoc.path) {
-            throw new Error(`Failed to upload document: ${file.name}`);
-          }
-
-          documentIds.push(uploadedDoc.id);
-
-          // Get signed URL for the document
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from('documents')
-            .createSignedUrl(uploadedDoc.path, 3600);
-
-          if (signedUrlError) throw signedUrlError;
-          documentUrls.push(signedUrlData.signedUrl);
-        }
-      }
-
-      let selectedDocs: { path: string }[] = [];
 
       // Get signed URLs for existing documents
       if (selectedDocumentIds.length > 0) {
-        // Fetch paths for selected documents
-        if (isPersonalDocument) {
-          const { data, error: fetchError } = await supabase
-            .from('personal_documents')
-            .select('path')
-            .in('id', selectedDocumentIds);
-          if (fetchError) throw fetchError;
-          selectedDocs = data || [];
-        }
-        else {
-          const { data, error: fetchError } = await supabase
-            .from('documents')
-            .select('path')
-            .in('id', selectedDocumentIds);
-          if (fetchError) throw fetchError;
-          selectedDocs = data || [];
-        }
-        console.log('Selected documents:', selectedDocs);
+        const { data: selectedDocs, error: fetchError } = await supabase
+          .from('documents')
+          .select('path')
+          .in('id', selectedDocumentIds);
 
-        // Get signed URLs for each document
+        if (fetchError) throw fetchError;
+
         for (const doc of selectedDocs) {
           const { data: signedUrlData, error: signedUrlError } = await supabase.storage
             .from('documents')
@@ -149,15 +121,15 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
         }
       }
 
-      // Prepare request payload with arrays for document IDs and URLs
+      // Prepare request payload
       const payload = {
         serviceId: service.id,
-        userId: userId,
+        userId: user?.id,
         documentIds: documentIds,
         customInput: customInput,
         documentUrls: documentUrls,
         serviceUrl: service.url,
-        projectId: projectId
+        projectId: currentProjectId
       };
 
       // Make request to the consultant service
@@ -186,7 +158,6 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
     }
   };
 
-  // Clear errors when input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCustomInput(e.target.value);
     if (inputError) {
@@ -194,7 +165,6 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
     }
   };
 
-  // Clear errors when files change
   const handleFileChange = (e: Event) => {
     const target = e.target as HTMLInputElement;
     if (target.files) {
@@ -205,7 +175,6 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
     }
   };
 
-  // Handle document selection
   const handleDocumentSelection = (selectedIds: string[]) => {
     setSelectedDocumentIds(selectedIds);
     if (inputError && selectedIds.length > 0) {
@@ -262,34 +231,28 @@ const ServiceUsageForm: React.FC<ServiceUsageFormProps> = ({ isOpen, onClose, se
 
         <Tabs>
           <Tab id="upload-new" label="Upload New Files">
-            <FileUploader
+            {/* <FileUploader
               labelTitle="Upload Document"
               labelDescription="Max file size: 10MB. Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG"
               buttonLabel="Add file"
               accept={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png']}
               multiple={true}
               filenameStatus="edit"
-              onChange={handleFileChange}
-            />
+              onChange={handleFileChange} */}
+              <div></div>
+            
           </Tab>
           <Tab id="select-existing" label="Select Existing Files">
-            {projectId ? (
-              <DocumentSelector 
-              
-                projectId={projectId}
-                onSelectionChange={handleDocumentSelection} 
-              />
-            ):(
-              <DocumentSelector 
-              userId={userId}
-                onSelectionChange={handleDocumentSelection} 
-              />
-            )}
+            <DocumentSelector 
+              projectId={getProjectId()}
+              onSelectionChange={handleDocumentSelection} 
+            />
           </Tab>
         </Tabs>
 
         {uploading && (
           <ProgressBar
+            label="Processing"
             helperText="Processing..."
             value={50}
             max={100}
