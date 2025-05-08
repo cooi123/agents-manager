@@ -1,36 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Checkbox, SkeletonText, Tabs, Tab } from '@carbon/react';
-import { usePersonalDocumentStore } from '../../store/personalDocumentStore';
+import { Checkbox, SkeletonText } from '@carbon/react';
 import { useDocumentStore } from '../../store/documentStore';
+import type { Database } from '../../types/database.types';
+
+type Document = Database['public']['Tables']['documents']['Row'];
 
 interface DocumentSelectorProps {
-  userId?: string;
   projectId?: string;
   onSelectionChange: (selectedDocIds: string[]) => void;
 }
 
-const DocumentSelector: React.FC<DocumentSelectorProps> = ({ userId, projectId, onSelectionChange }) => {
-  const { documents: personalDocuments, loading: personalLoading, fetchPersonalDocuments } = usePersonalDocumentStore();
-  const { projectDocuments, loading: projectLoading, fetchDocuments } = useDocumentStore();
+const DocumentSelector: React.FC<DocumentSelectorProps> = ({ projectId, onSelectionChange }) => {
+  const { projectDocuments, loading, fetchDocuments } = useDocumentStore();
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
-  // Fetch documents based on provided IDs
   useEffect(() => {
     const loadData = async () => {
-      if (userId) {
-        const docs = await fetchPersonalDocuments(userId);
-      }
-      
       if (projectId) {
         await fetchDocuments(projectId);
       }
     };
     
     loadData();
-  }, [userId, projectId, fetchPersonalDocuments, fetchDocuments]);
-  
+  }, [projectId, fetchDocuments]);
 
-  
   const handleCheckboxChange = (docId: string, isChecked: boolean) => {
     let newSelection;
     
@@ -44,9 +37,8 @@ const DocumentSelector: React.FC<DocumentSelectorProps> = ({ userId, projectId, 
     onSelectionChange(newSelection);
   };
 
-  // Create a documents section based on type (personal or project)
-  const renderDocumentSection = (docs: any[], title: string, loading: boolean) => {
-    if (loading) {
+  const renderDocumentSection = (docs: Document[], title: string, isLoading: boolean) => {
+    if (isLoading) {
       return (
         <div className="mt-4">
           <h4 className="text-sm font-medium mb-2">{title}</h4>
@@ -72,7 +64,7 @@ const DocumentSelector: React.FC<DocumentSelectorProps> = ({ userId, projectId, 
             <Checkbox
               key={doc.id}
               id={`doc-${doc.id}`}
-              labelText={doc.filename || doc.name}
+              labelText={doc.filename}
               checked={selectedDocuments.includes(doc.id)}
               onChange={(_, { checked }) => handleCheckboxChange(doc.id, checked)}
               className="mb-2"
@@ -83,21 +75,15 @@ const DocumentSelector: React.FC<DocumentSelectorProps> = ({ userId, projectId, 
     );
   };
 
-  // Otherwise, show just one section
-  if (userId) {
-    return renderDocumentSection(personalDocuments, "Your Documents", personalLoading);
-  }
-  
-  if (projectId) {
-    return renderDocumentSection(projectDocuments, "Project Documents", projectLoading);
+  if (!projectId) {
+    return (
+      <div className="mt-4">
+        <p className="text-gray-500">No project specified</p>
+      </div>
+    );
   }
 
-  // Fallback if neither is provided
-  return (
-    <div className="mt-4">
-      <p className="text-gray-500">No document source specified</p>
-    </div>
-  );
+  return renderDocumentSection(projectDocuments, "Project Documents", loading);
 };
 
 export default DocumentSelector;

@@ -4,18 +4,23 @@ import { Grid, Column, Tile, Loading, Button, Tag, Dropdown, Modal, TextArea, St
 import { ArrowLeft, Download } from '@carbon/icons-react';
 import { supabase } from '../services/supabase';
 import { useServiceUsageStore } from '../store/serviceUsageStore';
-import { usePersonalDocumentStore } from '../store/personalDocumentStore';
 import { useServiceStore } from '../store/serviceStore';
+import { useDocumentStore } from '../store/documentStore';
+import { useProjectStore } from '../store/projectStore';
 import { formatDate, formatFileSize } from '../utils/formatters';
 import ServiceUsageList from '../components/services/ServiceUsageList';
+import type { Database } from '../types/database.types';
+
+type Document = Database['public']['Tables']['documents']['Row'];
 
 const PersonalDocumentPage: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
-  const { documents, loading, fetchDocuments } = usePersonalDocumentStore();
+  const { projectDocuments: documents, loading, fetchDocuments } = useDocumentStore();
   const { services, fetchServices } = useServiceStore();
   const { createUsageRecord } = useServiceUsageStore();
-  const [document, setDocument] = useState<any>(null);
+  const { projects, fetchProjects } = useProjectStore();
+  const [currentDocument, setCurrentDocument] = useState<Document | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,20 +30,27 @@ const PersonalDocumentPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    fetchDocuments();
-    fetchServices();
-  }, [fetchDocuments]);
+    const initialize = async () => {
+      await fetchProjects();
+      const personalProject = projects.find(p => p.project_type === 'personal');
+      if (personalProject) {
+        await fetchDocuments(personalProject.id);
+      }
+      await fetchServices();
+    };
+    initialize();
+  }, [fetchProjects, fetchDocuments, fetchServices, projects]);
 
   useEffect(() => {
     if (documents.length > 0 && documentId) {
-      const doc = documents.find(d => d.id === documentId);
-      setDocument(doc || null);
+      const doc = documents.find((d: Document) => d.id === documentId);
+      setCurrentDocument(doc || null);
     }
   }, [documents, documentId]);
 
   useEffect(() => {
     async function getDocumentUrl() {
-      if (!document) return;
+      if (!currentDocument) return;
       
       try {
         setLoadingPreview(true);
@@ -46,7 +58,7 @@ const PersonalDocumentPage: React.FC = () => {
         
         const { data, error } = await supabase.storage
           .from('documents')
-          .createSignedUrl(document.path, 3600); // 1 hour expiry
+          .createSignedUrl(currentDocument.path, 3600); // 1 hour expiry
         
         if (error) throw error;
         setUrl(data.signedUrl);
@@ -57,36 +69,36 @@ const PersonalDocumentPage: React.FC = () => {
       }
     }
 
-    if (document) {
+    if (currentDocument) {
       getDocumentUrl();
     }
-  }, [document]);
+  }, [currentDocument]);
 
   const handleDownload = async () => {
-    if (!document) return;
+    if (!currentDocument) return;
     
     try {
       const { data, error } = await supabase.storage
         .from('documents')
-        .download(document.path);
+        .download(currentDocument.path);
       
       if (error) throw error;
       
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = document.filename;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const downloadUrl = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = currentDocument.filename;
+      document.body.appendChild(link);
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading file:', error);
     }
   };
 
   const handleServiceSubmit = async () => {
-    if (!document || !selectedService || !url) return;
+    if (!currentDocument || !selectedService || !url) return;
     
     try {
       setProcessing(true);
@@ -115,10 +127,13 @@ const PersonalDocumentPage: React.FC = () => {
 
       // Create usage record
       const usageRecord = await createUsageRecord(
-        service.id,
-        document.id,
+        selectedService,
+        currentDocument.id,
         customInput,
-        result
+        result,
+        url,
+        service.url,
+        currentDocument.project_id
       );
 
       if (usageRecord) {
@@ -141,7 +156,7 @@ const PersonalDocumentPage: React.FC = () => {
     );
   }
 
-  if (!document) {
+  if (!currentDocument) {
     return (
       <div className="h-full flex items-center justify-center">
         <Tag type="red">Document not found</Tag>
@@ -184,9 +199,9 @@ const PersonalDocumentPage: React.FC = () => {
         <Tile className="p-5 mb-5">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h1 className="text-2xl font-bold mb-2">{document.filename}</h1>
+              <h1 className="text-2xl font-bold mb-2">{currentDocument.filename}</h1>
               <p className="text-gray-600">
-                Uploaded {formatDate(document.created_at)} • {formatFileSize(document.filesize)}
+                Uploaded {formatDate(currentDocument.created_at)} • {formatFileSize(currentDocument.filesize)}
               </p>
             </div>
           </div>
@@ -202,16 +217,16 @@ const PersonalDocumentPage: React.FC = () => {
               {error}
             </div>
           ) : url ? (
-            document.mimetype.startsWith('image/') ? (
+            currentDocument.mimetype.startsWith('image/') ? (
               <img 
                 src={url} 
-                alt={document.filename}
+                alt={currentDocument.filename}
                 className="max-w-full max-h-[80vh] object-contain mx-auto"
               />
-            ) : document.mimetype === 'application/pdf' ? (
+            ) : currentDocument.mimetype === 'application/pdf' ? (
               <iframe
                 src={url}
-                title={document.filename}
+                title={currentDocument.filename}
                 className="w-full h-[80vh] border-0"
               />
             ) : (
@@ -221,7 +236,7 @@ const PersonalDocumentPage: React.FC = () => {
                   onClick={handleDownload}
                   renderIcon={Download}
                 >
-                  Download {document.filename}
+                  Download {currentDocument.filename}
                 </Button>
               </div>
             )

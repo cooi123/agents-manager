@@ -4,7 +4,6 @@ import { Grid, Column, Tile, Loading, Button, Modal } from '@carbon/react';
 import { Upload, AddAlt } from '@carbon/icons-react';
 import { useProjectStore } from '../store/projectStore';
 import { useAuthStore } from '../store/authStore';
-import DocumentUploader from '../components/documents/DocumentUploader';
 import DocumentList from '../components/documents/DocumentList';
 import ServiceCard from '../components/services/ServiceCard';
 import ServiceSelector from '../components/services/ServiceSelector';
@@ -106,16 +105,7 @@ const ProjectDetailPage: React.FC = () => {
           <DocumentList projectId={currentProject.id} />
         </Tile>
 
-        {/* Modals */}
-        <Modal
-          open={isUploadModalOpen}
-          onRequestClose={() => setIsUploadModalOpen(false)}
-          modalHeading="Upload Documents"
-          primaryButtonText="Close"
-          size="lg"
-        >
-          <DocumentUploader projectId={currentProject.id} />
-        </Modal>
+
         
         {/* Service Selector Modal */}
         <ServiceSelector 
