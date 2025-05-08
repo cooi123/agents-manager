@@ -62,7 +62,7 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('services')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
