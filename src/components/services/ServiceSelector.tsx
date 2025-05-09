@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Checkbox, Modal } from '@carbon/react';
 import { useServiceStore } from '../../store/serviceStore';
 import { useProjectStore } from '../../store/projectStore';
+import type { Database } from '../../types/database.types';
+
+type Service = Database['public']['Tables']['services']['Row'];
 
 interface ServiceSelectorProps {
   projectId: string;
@@ -11,10 +14,10 @@ interface ServiceSelectorProps {
 
 const ServiceSelector: React.FC<ServiceSelectorProps> = ({ projectId, open, onClose }) => {
   const { services, fetchServices, loading: servicesLoading } = useServiceStore();
-  const { currentProject, updateProjectServices, addServiceToProject } = useProjectStore();
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const {fetchProjectServices, updateProjectServices } = useProjectStore();
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-
+  const [availableServices, setAvailableServices] = useState<Service[]>(services);
   useEffect(() => {
     if (open) {
       fetchServices();
@@ -22,14 +25,19 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ projectId, open, onCl
   }, [open, fetchServices]);
 
   useEffect(() => {
-    if (currentProject?.services) {
-      const selectedIds = currentProject.services.map(service => service.id);
-      setSelectedServices(selectedIds);
-    }
-  }, [currentProject]);
+    const fetchAvailableServices = async () => {
+      const projectServices = await fetchProjectServices(projectId);
+      const availableServices = services.filter(service => !projectServices.some(s => s.id === service.id));
+      setAvailableServices(availableServices);
+    };
+    fetchAvailableServices();
+    
+    
+  }, [services]);
+
 
   const handleServiceToggle = (serviceId: string) => {
-    setSelectedServices(prev => {
+    setSelectedServiceIds(prev => {
       if (prev.includes(serviceId)) {
         return prev.filter(id => id !== serviceId);
       } else {
@@ -40,7 +48,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ projectId, open, onCl
 
   const handleSave = async () => {
     setSaving(true);
-    await updateProjectServices(projectId, selectedServices);
+    await updateProjectServices(projectId, selectedServiceIds);
     setSaving(false);
     onClose();
   };
@@ -61,15 +69,15 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({ projectId, open, onCl
         <p>Loading services...</p>
       ) : (
         <div className="space-y-4 mt-4">
-          {services.length === 0 ? (
-            <p>No services available</p>
+          {availableServices.length === 0 ? (
+            <p>No New services available</p>
           ) : (
-            services.map(service => (
+            availableServices.map(service => (
               <Checkbox
                 key={service.id}
                 id={`service-${service.id}`}
                 labelText={service.name}
-                checked={selectedServices.includes(service.id)}
+                checked={selectedServiceIds.includes(service.id)}
                 onChange={() => handleServiceToggle(service.id)}
               />
             ))

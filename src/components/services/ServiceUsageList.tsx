@@ -12,36 +12,47 @@ import {
   Button,
 } from '@carbon/react';
 import { Download, Search } from '@carbon/icons-react';
-import { useServiceUsageStore } from '../../store/serviceUsageStore';
-import { useServiceStore } from '../../store/serviceStore';
+import { useProjectStore } from '../../store/projectStore';
 import { formatDate } from '../../utils/formatters';
 import ServiceUsageDetails from './ServiceUsageDetails';
 
 interface ServiceUsageListProps {
+  projectId?: string;
+  serviceId?: string;
   documentId?: string;
 }
 
-const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
-  const { usageRecords, loading, fetchUsageRecords } = useServiceUsageStore();
-  const { services } = useServiceStore();
+const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ projectId, serviceId, documentId }) => {
+  const { fetchServiceTransactions } = useProjectStore();
+  const [transactions, setTransactions] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selectedUsage, setSelectedUsage] = React.useState<any>(null);
   
-  // Fetch both services and usage records
+  // Fetch transactions when component mounts or when filters change
   React.useEffect(() => {
-    Promise.all([
-      fetchUsageRecords(),
-      services.length === 0 && useServiceStore.getState().fetchServices(),
-    ]);
-  }, [fetchUsageRecords, services.length]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        if (projectId && serviceId) {
+          const data = await fetchServiceTransactions(projectId, serviceId);
+          setTransactions(data);
+        }
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [projectId, serviceId, fetchServiceTransactions]);
   
   // Filter records by document if documentId is provided
   const filteredRecords = React.useMemo(() => {
-    if (!documentId) return usageRecords;
-    return usageRecords.filter(record => record.document_id === documentId);
-  }, [usageRecords, documentId]);
-  const [selectedUsage, setSelectedUsage] = React.useState<any>(null);
+    if (!documentId) return transactions;
+    return transactions.filter(record => record.document_id === documentId);
+  }, [transactions, documentId]);
   
   const headers = [
-    { key: 'service', header: 'Service' },
     { key: 'status', header: 'Status' },
     { key: 'created_at', header: 'Date' },
     { key: 'document', header: 'Document' },
@@ -49,23 +60,18 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
     { key: 'result', header: 'Result' },
   ];
   
-  const rows = filteredRecords.map((record) => {
-    const service = services.find(s => s.id === record.service_id);
-
-    return {
-      id: record.id,
-      service: service?.name || 'Loading...',
-      status: record.status,
-      created_at: formatDate(record.completed_at || record.created_at),
-      document: record.document_id ? 'View Document' : 'No Document',
-      custom_input: record.custom_input || '-',
-      result: record.result ? (
-        typeof record.result === 'string' 
-          ? record.result.substring(0, 50) + (record.result.length > 50 ? '...' : '')
-          : 'View Details'
-      ) : '-',
-    };
-  });
+  const rows = filteredRecords.map((record) => ({
+    id: record.id,
+    status: record.status,
+    created_at: formatDate(record.completed_at || record.created_at),
+    document: record.document_id ? 'View Document' : 'No Document',
+    custom_input: record.custom_input || '-',
+    result: record.result ? (
+      typeof record.result === 'string' 
+        ? record.result.substring(0, 50) + (record.result.length > 50 ? '...' : '')
+        : 'View Details'
+    ) : '-',
+  }));
   
   if (loading) {
     return <Loading />;
@@ -78,7 +84,7 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
         <p className="mt-4">
           {documentId 
             ? "No services have been used with this document" 
-            : "You haven't used any services yet"}
+            : "No transactions found for this service"}
         </p>
       </div>
     );
@@ -92,7 +98,7 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
             <TableHead>
               <TableRow>
                 {headers.map((header) => (
-                  <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                  <TableHeader {...getHeaderProps({ header })}>
                     {header.header}
                   </TableHeader>
                 ))}
@@ -100,9 +106,9 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
             </TableHead>
             <TableBody>
               {rows.map((row) => (
-                <TableRow key={row.id} {...getRowProps({ row })}>
+                <TableRow {...getRowProps({ row })}>
                   {row.cells.map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell>
                       {cell.info.header === 'status' ? (
                          <Tag type={
                           cell.value === 'PROCESSING' ? 'blue' : 
@@ -111,8 +117,6 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ documentId }) => {
                         }>
                           {cell.value}
                         </Tag>
-                      ) : cell.info.header === 'service' ? (
-                        <span className="font-medium">{cell.value}</span>
                       ) : cell.info.header === 'document' && cell.value !== 'No Document' ? (
                         <div className="flex gap-2">
                           <Button
