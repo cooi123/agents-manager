@@ -13,13 +13,14 @@ interface DocumentState {
   uploadDocument: (file: File, projectId: string) => Promise<Document | null>;
   uploadDocuments: (files: File[], projectId: string) => Promise<UploadResult>;
   deleteDocument: (id: string) => Promise<boolean>;
+  getDocumentUrls: (documentIds: string[]) => Promise<string[]>;
 }
 
 // Add this type for upload results
 type UploadResult = {
   success: boolean;
   errors?: string[];
-  uploadedFiles?: string[];
+  uploadedFilesId: string[];
 };
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -66,9 +67,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
       const uploadedDocuments: Document[] = [];
       const errors: string[] = [];
-      const uploadedFiles: string[] = [];
+      const uploadedFilesId: string[] = [];
 
-      // Upload all files
       for (const file of files) {
         try {
           // Check if file already exists in the project
@@ -85,14 +85,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
           }
 
           const filename = `${Date.now()}-${file.name}`;
-          const filePath = `${projectId}/${filename}`;
+          // Ensure proper path formatting
+          const filePath = `${projectId}/${filename}`.replace(/\/+/g, '/');
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
             .from('documents')
             .upload(filePath, file);
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw uploadError;
+          }
 
           // Create document record
           const { data, error: dbError } = await supabase
@@ -108,12 +112,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
             .select()
             .single();
 
-          if (dbError) throw dbError;
+          if (dbError) {
+            console.error('Database error:', dbError);
+            throw dbError;
+          }
+
           if (data) {
             uploadedDocuments.push(data);
-            uploadedFiles.push(file.name);
+            uploadedFilesId.push(data.id);
           }
         } catch (error: any) {
+          console.error('Error uploading file:', error);
           errors.push(`Failed to upload "${file.name}": ${error.message}`);
         }
       }
@@ -130,11 +139,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       return {
         success: uploadedDocuments.length > 0,
         errors: errors.length > 0 ? errors : undefined,
-        uploadedFiles: uploadedFiles.length > 0 ? uploadedFiles : undefined
+        uploadedFilesId: uploadedFilesId
       };
     } catch (error: any) {
+      console.error('Store error:', error);
       set({ error: error.message, loading: false });
-      return { success: false, errors: [error.message] };
+      return { success: false, errors: [error.message], uploadedFilesId: [] };
     }
   },
 
@@ -184,33 +194,50 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   deleteDocument: async (id) => {
+
     set({ loading: true, error: null });
     try {
-      // First get the document to get its storage path
+      // First get the document to get its storage path and verify ownership
       const { data: doc, error: fetchError } = await supabase
         .from('documents')
-        .select('path')
+        .select('path, user_id')
         .eq('id', id)
         .single();
+      console.log("id", id)
+      console.log("doc", doc)
+      if (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw fetchError;
+      }
 
-      if (fetchError) throw fetchError;
+      if (!doc) {
+        throw new Error('Document not found');
+      }
 
       // Delete from storage
-      if (doc) {
-        const { error: storageError } = await supabase.storage
-          .from('documents')
-          .remove([doc.path]);
+      const { error: storageError } = await supabase.storage
+        .from('documents')
+        .remove([doc.path]);
 
-        if (storageError) throw storageError;
+      if (storageError) {
+        console.error('Storage error:', storageError);
+        // If storage deletion fails, check if it's a permissions error
+        if (storageError.message.includes('permission denied')) {
+          throw new Error('You do not have permission to delete this document');
+        }
+        throw storageError;
       }
 
       // Delete from database
-      const { error: dbError } = await supabase
+      const { data, error: dbError } = await supabase
         .from('documents')
         .delete()
         .eq('id', id);
-
-      if (dbError) throw dbError;
+      console.log("delete data", data)
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw dbError;
+      }
 
       const { projectDocuments: documents } = get();
       set({
@@ -219,8 +246,36 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       });
       return true;
     } catch (error: any) {
+      console.error('Delete error:', error);
       set({ error: error.message, loading: false });
       return false;
+    }
+  },
+
+  getDocumentUrls: async (documentIds: string[]) => {
+    try {
+      const { data: selectedDocs, error: fetchError } = await supabase
+        .from('documents')
+        .select('path')
+        .in('id', documentIds);
+
+      if (fetchError) throw fetchError;
+
+      const documentUrls = await Promise.all(
+        selectedDocs.map(async (doc) => {
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(doc.path, 3600);
+
+          if (signedUrlError) throw signedUrlError;
+          return signedUrlData.signedUrl;
+        })
+      );
+
+      return documentUrls;
+    } catch (error) {
+      console.error('Error getting document URLs:', error);
+      throw error;
     }
   }
 }));

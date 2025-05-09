@@ -142,6 +142,15 @@ export interface Database {
           result_payload: Json | null
           result_document_urls: string[] | null
           error_message: string | null
+          resources_used: Json
+          tokens_input: number | null
+          tokens_output: number | null
+          tokens_total: number | null
+          runtime_ms: number | null
+          resources_used_count: number
+          resources_used_cost: number
+          resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
+          model_name: string | null
         }
         Insert: {
           id?: string
@@ -159,6 +168,15 @@ export interface Database {
           result_payload?: Json | null
           result_document_urls?: string[] | null
           error_message?: string | null
+          resources_used: Json
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_total?: number | null
+          runtime_ms?: number | null
+          resources_used_count: number
+          resources_used_cost: number
+          resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
+          model_name?: string | null
         }
         Update: {
           id?: string
@@ -176,50 +194,6 @@ export interface Database {
           result_payload?: Json | null
           result_document_urls?: string[] | null
           error_message?: string | null
-        }
-      }
-      usages: {
-        Row: {
-          id: string
-          created_at: string
-          user_id: string
-          project_id: string
-          service_id: string
-          transaction_id: string
-          resources_used: Json
-          tokens_input: number | null
-          tokens_output: number | null
-          tokens_total: number | null
-          runtime_ms: number | null
-          resources_used_count: number
-          resources_used_cost: number
-          resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
-          model_name: string | null
-        }
-        Insert: {
-          id?: string
-          created_at?: string
-          user_id: string
-          project_id: string
-          service_id: string
-          transaction_id: string
-          resources_used: Json
-          tokens_input?: number | null
-          tokens_output?: number | null
-          tokens_total?: number | null
-          runtime_ms?: number | null
-          resources_used_count: number
-          resources_used_cost: number
-          resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
-          model_name?: string | null
-        }
-        Update: {
-          id?: string
-          created_at?: string
-          user_id?: string
-          project_id?: string
-          service_id?: string
-          transaction_id?: string
           resources_used?: Json
           tokens_input?: number | null
           tokens_output?: number | null
@@ -229,6 +203,53 @@ export interface Database {
           resources_used_cost?: number
           resource_type?: 'llm' | 'embedding' | 'storage' | 'processing'
           model_name?: string | null
+        }
+      }
+      project_services: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          project_id: string
+          service_id: string
+          is_active: boolean
+          total_tokens_input: number
+          total_tokens_output: number
+          total_tokens: number
+          total_runtime_ms: number
+          total_resources_used_count: number
+          total_resources_used_cost: number
+          last_used_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          project_id: string
+          service_id: string
+          is_active?: boolean
+          total_tokens_input?: number
+          total_tokens_output?: number
+          total_tokens?: number
+          total_runtime_ms?: number
+          total_resources_used_count?: number
+          total_resources_used_cost?: number
+          last_used_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          project_id?: string
+          service_id?: string
+          is_active?: boolean
+          total_tokens_input?: number
+          total_tokens_output?: number
+          total_tokens?: number
+          total_runtime_ms?: number
+          total_resources_used_count?: number
+          total_resources_used_cost?: number
+          last_used_at?: string | null
         }
       }
     }

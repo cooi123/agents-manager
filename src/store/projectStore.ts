@@ -5,31 +5,45 @@ import type { Database } from '../types/database.types';
 
 type Project = Database['public']['Tables']['projects']['Row'];
 type Service = Database['public']['Tables']['services']['Row'];
-type ProjectWithServices = Project & {
-  services: Service[];
+type ProjectService = Database['public']['Tables']['project_services']['Row'];
+type Transaction = Database['public']['Tables']['transactions']['Row'];
+
+type ServiceUsage = {
+  total_transactions: number;
+  total_tokens: number;
+  total_cost: number;
+  last_used_at: string | null;
 };
+
+type ProjectWithServices = Project & {
+  services: (Service & {
+    usage: ServiceUsage;
+  })[];
+};
+
 interface ProjectState {
   projects: Project[];
   currentProject: ProjectWithServices | null;
-  personalProject: Project | null;
+  personalProject: ProjectWithServices | null;
   loading: boolean;
   error: string | null;
   lastFetched: Date | null;
 
   fetchProjects: () => Promise<void>;
-  fetchProject: (id: string) => Promise<Project | null>;
+  fetchProject: (id: string) => Promise<ProjectWithServices | null>;
   createProject: (name: string, description?: string) => Promise<Project | null>;
   updateProject: (id: string, updates: Partial<Project>) => Promise<Project | null>;
   deleteProject: (id: string) => Promise<boolean>;
 
-  // New service relationship functions
-  fetchProjectServices: (projectId: string) => Promise<Service[]>;
+  // Updated service relationship functions
+  fetchProjectServices: (projectId: string) => Promise<(Service & { usage: ServiceUsage })[]>;
   addServiceToProject: (projectId: string, serviceId: string) => Promise<boolean>;
   removeServiceFromProject: (projectId: string, serviceId: string) => Promise<boolean>;
   updateProjectServices: (projectId: string, serviceIds: string[]) => Promise<boolean>;
+  fetchServiceTransactions: (projectId: string, serviceId: string) => Promise<Transaction[]>;
 
   // New method for personal project
-  fetchPersonalProject: () => Promise<Project | null>;
+  fetchPersonalProject: () => Promise<ProjectWithServices | null>;
 
   clearProjectData: () => void;
 }
@@ -47,25 +61,33 @@ export const useProjectStore = create<ProjectState>()(
 
       fetchPersonalProject: async () => {
         const { personalProject } = get();
-        // Return cached personal project if it exists
-        if (personalProject) return personalProject;
-
         set({ loading: true, error: null });
+        
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error('User not authenticated');
 
-          const { data, error } = await supabase
-            .from('projects')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('project_type', 'personal')
-            .single();
+          // If we don't have a personal project, find it first
+          if (!personalProject) {
+            const { data, error } = await supabase
+              .from('projects')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('project_type', 'personal')
+              .single();
 
-          if (error) throw error;
-          
-          set({ personalProject: data, loading: false });
-          return data;
+            if (error) throw error;
+            
+            // Now fetch the full project details
+            const updatedPersonalProject = await get().fetchProject(data.id);
+            set({ personalProject: updatedPersonalProject, loading: false });
+            return updatedPersonalProject;
+          }
+
+          // If we already have the personal project, just refresh it
+          const updatedPersonalProject = await get().fetchProject(personalProject.id);
+          set({ personalProject: updatedPersonalProject, loading: false });
+          return updatedPersonalProject;
         } catch (error: any) {
           set({ error: error.message, loading: false });
           return null;
@@ -121,15 +143,52 @@ export const useProjectStore = create<ProjectState>()(
       fetchProject: async (id) => {
         set({ loading: true, error: null });
         try {
-          const { data, error } = await supabase
+          // First fetch the project
+          const { data: project, error: projectError } = await supabase
             .from('projects')
             .select('*')
             .eq('id', id)
             .single();
 
-          if (error) throw error;
-          set({ currentProject: data, loading: false });
-          return data;
+          if (projectError) throw projectError;
+
+          // Then fetch the project services with usage data
+          const { data: projectServices, error: servicesError } = await supabase
+            .from('project_services')
+            .select(`
+              *,
+              service:services (
+                id,
+                created_at,
+                updated_at,
+                name,
+                url,
+                description,
+                instructions
+              )
+            `)
+            .eq('project_id', id);
+
+          if (servicesError) throw servicesError;
+
+          // Transform the data to include services with usage
+          const services = projectServices?.map(item => ({
+            ...item.service,
+            usage: {
+              total_transactions: item.total_resources_used_count || 0,
+              total_tokens: item.total_tokens || 0,
+              total_cost: item.total_resources_used_cost || 0,
+              last_used_at: item.last_used_at
+            }
+          })) || [];
+
+          const projectWithServices = {
+            ...project,
+            services
+          };
+
+          set({ currentProject: projectWithServices, loading: false });
+          return projectWithServices;
         } catch (error: any) {
           set({ error: error.message, loading: false });
           return null;
@@ -141,6 +200,7 @@ export const useProjectStore = create<ProjectState>()(
           const { data, error } = await supabase
             .from('project_services')
             .select(`
+              *,
               service:services (
                 id,
                 created_at,
@@ -155,8 +215,33 @@ export const useProjectStore = create<ProjectState>()(
 
           if (error) throw error;
 
-          // Transform the nested data structure and cast to Service type
-          return (data?.map(item => item.service) || []) as unknown as Service[];
+          // Transform the nested data structure and include usage data
+          return (data?.map(item => ({
+            ...item.service,
+            usage: {
+              total_transactions: item.total_resources_used_count || 0,
+              total_tokens: item.total_tokens || 0,
+              total_cost: item.total_resources_used_cost || 0,
+              last_used_at: item.last_used_at
+            }
+          })) || []) as (Service & { usage: ServiceUsage })[];
+        } catch (error: any) {
+          set({ error: error.message });
+          return [];
+        }
+      },
+
+      fetchServiceTransactions: async (projectId: string, serviceId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('project_id', projectId)
+            .eq('service_id', serviceId)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          return data || [];
         } catch (error: any) {
           set({ error: error.message });
           return [];
@@ -211,15 +296,12 @@ export const useProjectStore = create<ProjectState>()(
 
       updateProjectServices: async (projectId: string, serviceIds: string[]) => {
         try {
-          // First remove all existing associations
-          await supabase
-            .from('project_services')
-            .delete()
-            .eq('project_id', projectId);
+          //create new project services for the service that are not already in the project
+          const existingProjectServices = await get().fetchProjectServices(projectId);
+          const newServiceIds = serviceIds.filter(serviceId => !existingProjectServices.some(service => service.id === serviceId));
 
-          // Then add all selected services
-          if (serviceIds.length > 0) {
-            const projectServices = serviceIds.map(serviceId => ({
+          if (newServiceIds.length > 0) {
+            const projectServices = newServiceIds.map(serviceId => ({
               project_id: projectId,
               service_id: serviceId
             }));
