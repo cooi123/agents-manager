@@ -29,7 +29,7 @@ import AdminServicesPage from './pages/admin/AdminServicesPage';
 import '@carbon/react/index.scss';
 import './index.css';
 import ProjectServiceDetailPage from './pages/project/ProjectServiceDetailPage';
-import ServiceRunPage from './pages/ServiceRunPage';
+import ServiceRunPage from './pages/project/ServiceRunPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();

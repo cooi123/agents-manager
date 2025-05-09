@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDocumentStore } from '../store/documentStore';
 import { useUserStore } from '../store/userStore';
+import { useServiceStore } from '../store/serviceStore';
 
 interface ServiceRunState {
   isRunning: boolean;
@@ -14,13 +15,38 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
     error: null,
     result: null
   });
+  const [service, setService] = useState<any>(null);
+  const [isLoadingService, setIsLoadingService] = useState(true);
+  
+  const { fetchService } = useServiceStore();
   const { currentUser } = useUserStore();
   const { getDocumentUrls } = useDocumentStore();
   const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL;
 
+  useEffect(() => {
+    const loadService = async () => {
+      try {
+        setIsLoadingService(true);
+        const serviceData = await fetchService(serviceId);
+        setService(serviceData);
+      } catch (error) {
+        setState(prev => ({ ...prev, error: 'Failed to load service' }));
+      } finally {
+        setIsLoadingService(false);
+      }
+    };
+
+    loadService();
+  }, [serviceId, fetchService]);
+
   const runService = async (documentIds: string[], customInput: string) => {
     if (!currentUser) {
       setState(prev => ({ ...prev, error: 'No authenticated user' }));
+      return;
+    }
+
+    if (!service) {
+      setState(prev => ({ ...prev, error: 'Service not loaded' }));
       return;
     }
 
@@ -33,12 +59,13 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
         serviceId,
         userId: currentUser.id,
         documentIds,
-        customInput,
+        inputData: {text: customInput},
         documentUrls,
-        projectId
+        projectId,
+        serviceUrl: service.url
       };
 
-      console.log(SERVICE_URL)
+      console.log(SERVICE_URL);
       const response = await fetch(SERVICE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,6 +92,8 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
   return {
     ...state,
     runService,
-    reset
+    reset,
+    isLoadingService,
+    service
   };
 }; 

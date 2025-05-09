@@ -82,8 +82,6 @@ BEGIN
     IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
         UPDATE public.project_services
         SET
-            total_tokens_input = total_tokens_input + COALESCE(NEW.tokens_input, 0),
-            total_tokens_output = total_tokens_output + COALESCE(NEW.tokens_output, 0),
             total_tokens = total_tokens + COALESCE(NEW.tokens_total, 0),
             total_runtime_ms = total_runtime_ms + COALESCE(NEW.runtime_ms, 0),
             total_resources_used_count = total_resources_used_count + NEW.resources_used_count,

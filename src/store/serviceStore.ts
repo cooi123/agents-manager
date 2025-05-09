@@ -12,6 +12,7 @@ interface ServiceState {
   createService: (service: Omit<Service, 'id' | 'created_at' | 'updated_at'>) => Promise<Service | null>;
   updateService: (id: string, updates: Partial<Service>) => Promise<Service | null>;
   deleteService: (id: string) => Promise<boolean>;
+  fetchService: (id: string) => Promise<Service | null>;
 }
 
 export const useServiceStore = create<ServiceState>((set, get) => ({
@@ -74,6 +75,23 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
         services: services.map(s => s.id === id ? data : s),
         loading: false
       });
+      return data;
+    } catch (error: any) {
+      set({ error: error.message, loading: false });
+      return null;
+    }
+  },
+
+  fetchService: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
       return data;
     } catch (error: any) {
       set({ error: error.message, loading: false });

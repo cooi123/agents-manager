@@ -143,8 +143,8 @@ export interface Database {
           result_document_urls: string[] | null
           error_message: string | null
           resources_used: Json
-          tokens_input: number | null
-          tokens_output: number | null
+          prompt_tokens: number | null
+          completion_tokens: number | null
           tokens_total: number | null
           runtime_ms: number | null
           resources_used_count: number
