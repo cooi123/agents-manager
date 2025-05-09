@@ -12,11 +12,11 @@ import {
   Button,
 } from '@carbon/react';
 import { Upload, ArrowLeft, Information } from '@carbon/icons-react';
-import { useProjectStore } from '../store/projectStore';
-import { useServiceRun } from '../hooks/useServiceRun';
-import DocumentList from '../components/documents/DocumentList';
-import DocumentUploadModal from '../components/documents/DocumentUploadModal';
-import type { Database } from '../types/database.types';
+import { useProjectStore } from '../../store/projectStore';
+import { useServiceRun } from '../../hooks/useServiceRun';
+import DocumentList from '../../components/documents/DocumentList';
+import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
+import type { Database } from '../../types/database.types';
 
 type Service = Database['public']['Tables']['services']['Row'] & {
   usage: {
