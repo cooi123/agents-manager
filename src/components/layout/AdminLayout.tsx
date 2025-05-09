@@ -20,11 +20,11 @@ import {
   ChevronLeft,
   ChevronRight
 } from '@carbon/icons-react';
-import { useAuthStore } from '../../store/authStore';
+import { useUserStore } from '../../store/userStore';
 import AppHeader from './AppHeader';
 
 const AdminLayout: React.FC = () => {
-  const { role, loading } = useAuthStore();
+  const { isAdmin, loading, fetchCurrentUser } = useUserStore();
   const navigate = useNavigate();
   const [sideNavExpanded, setSideNavExpanded] = useState(false); // Start collapsed on mobile
   
@@ -33,7 +33,11 @@ const AdminLayout: React.FC = () => {
   };
   
   useEffect(() => {
-    if (!loading && role !== 'admin') {
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
+  
+  useEffect(() => {
+    if (!loading && !isAdmin()) {
       navigate('/dashboard');
     }
     
@@ -54,7 +58,7 @@ const AdminLayout: React.FC = () => {
     
     // Clean up
     return () => window.removeEventListener('resize', handleResize);
-  }, [loading, role, navigate]);
+  }, [loading, isAdmin, navigate]);
   
   if (loading) {
     return (
