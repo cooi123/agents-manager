@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Loading } from '@carbon/react';
 import { supabase } from '../../services/supabase';
+import { handleDownload } from '../../utils/fileUtil';
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -93,22 +94,24 @@ const DocumentViewer: React.FC<DocumentViewerProps> = ({ isOpen, onClose, docume
   };
 
   return (
-    <Modal
-      open={isOpen}
-      onRequestClose={() => {
-        setUrl(null);
-        setError(null);
-        onClose();
-      }}
-      modalHeading={document?.filename || 'View Document'}
-      primaryButtonText="Close"
-      hasScrollingContent
-      size="lg"
-    >
-      <div className="mt-4">
-        {renderContent()}
-      </div>
-    </Modal>
+    <div className=" bg-black/50">
+      <Modal
+        open={isOpen}
+        onRequestClose={onClose}
+        modalHeading="Document Viewer"
+        primaryButtonText="Download"
+        onRequestSubmit={()=>{
+          handleDownload(document?.path, document?.filename)
+        }}
+        secondaryButtonText="Close"
+        hasScrollingContent
+        size="lg"
+      >
+        <div className="mt-4">
+          {renderContent()}
+        </div>
+      </Modal>
+    </div>
   );
 };
 

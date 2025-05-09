@@ -1,89 +1,133 @@
 import React, { useEffect, useState } from 'react';
-import { Checkbox, SkeletonText } from '@carbon/react';
+import {
+  DataTable,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeader,
+  TableBody,
+  TableCell,
+  Loading,
+  Tag,
+  Button,
+  Checkbox
+} from '@carbon/react';
+import { View, Download } from '@carbon/icons-react';
 import { useDocumentStore } from '../../store/documentStore';
-import type { Database } from '../../types/database.types';
-
-type Document = Database['public']['Tables']['documents']['Row'];
+import { formatDate, formatFileSize } from '../../utils/formatters';
+import DocumentViewer from './DocumentViewer';
 
 interface DocumentSelectorProps {
-  projectId?: string;
-  onSelectionChange: (selectedDocIds: string[]) => void;
+  projectId: string;
+  onSelectionChange: (selectedIds: string[]) => void;
+  selectedIds: string[];
+  onUploadClick?: () => void;
 }
 
-const DocumentSelector: React.FC<DocumentSelectorProps> = ({ projectId, onSelectionChange }) => {
-  const { projectDocuments, loading, fetchDocuments } = useDocumentStore();
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+const DocumentSelector: React.FC<DocumentSelectorProps> = ({
+  projectId,
+  onSelectionChange,
+  selectedIds,
+  onUploadClick
+}) => {
+  const { projectDocuments: documents, loading, fetchDocuments } = useDocumentStore();
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (projectId) {
-        await fetchDocuments(projectId);
-      }
-    };
-    
-    loadData();
-  }, [projectId, fetchDocuments]);
+    fetchDocuments(projectId);
+  }, [fetchDocuments, projectId]);
 
-  const handleCheckboxChange = (docId: string, isChecked: boolean) => {
-    let newSelection;
-    
-    if (isChecked) {
-      newSelection = [...selectedDocuments, docId];
-    } else {
-      newSelection = selectedDocuments.filter(id => id !== docId);
+  const headers = [
+    { key: 'select', header: 'Select' },
+    { key: 'filename', header: 'Filename' },
+    { key: 'filesize', header: 'Size' },
+    { key: 'created_at', header: 'Uploaded' },
+    { key: 'actions', header: 'Actions' },
+  ];
+
+  const rows = documents.map((doc) => ({
+    id: doc.id,
+    filename: doc.filename,
+    filesize: formatFileSize(doc.filesize),
+    created_at: formatDate(doc.created_at),
+    path: doc.path,
+  }));
+
+  const handleDownload = async (path: string, filename: string) => {
+    try {
+      const { data, error } = await window.supabase.storage
+        .from('documents')
+        .download(path);
+      
+      if (error) throw error;
+      
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
     }
-    
-    setSelectedDocuments(newSelection);
-    onSelectionChange(newSelection);
   };
 
-  const renderDocumentSection = (docs: Document[], title: string, isLoading: boolean) => {
-    if (isLoading) {
-      return (
-        <div className="mt-4">
-          <h4 className="text-sm font-medium mb-2">{title}</h4>
-          <SkeletonText paragraph width="100%" lineCount={3} />
-        </div>
-      );
-    }
+  if (loading) {
+    return <Loading />;
+  }
 
-    if (!docs || docs.length === 0) {
-      return (
-        <div className="mt-4">
-          <h4 className="text-sm font-medium mb-2">{title}</h4>
-          <p className="text-gray-500 text-sm">No documents available</p>
-        </div>
-      );
-    }
-
+  if (documents.length === 0) {
     return (
-      <div className="mt-4">
-        <h4 className="text-sm font-medium mb-2">{title}</h4>
-        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded p-2">
-          {docs.map((doc) => (
-            <Checkbox
-              key={doc.id}
-              id={`doc-${doc.id}`}
-              labelText={doc.filename}
-              checked={selectedDocuments.includes(doc.id)}
-              onChange={(_, { checked }) => handleCheckboxChange(doc.id, checked)}
-              className="mb-2"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  if (!projectId) {
-    return (
-      <div className="mt-4">
-        <p className="text-gray-500">No project specified</p>
+      <div className="flex flex-col items-center justify-center p-8">
+        <Tag type="cool-gray">No Documents</Tag>
+        <p className="mt-4">Upload documents to this project</p>
+        {onUploadClick && (
+          <Button 
+            kind="secondary"
+            onClick={onUploadClick}
+            className="mt-4"
+          >
+            Upload Documents
+          </Button>
+        )}
       </div>
     );
   }
 
-  return renderDocumentSection(projectDocuments, "Project Documents", loading);
+  return (
+    <>
+      <div className="flex justify-end mb-4">
+        {onUploadClick && (
+          <Button 
+            kind="secondary"
+            onClick={onUploadClick}
+          >
+            Upload Documents
+          </Button>
+        )}
+      </div>
+
+      <DataTable rows={rows} headers={headers}>
+        {/* ... existing DataTable content ... */}
+      </DataTable>
+
+      {isViewerOpen && selectedDocument && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center">
+          <DocumentViewer
+            isOpen={isViewerOpen}
+            onClose={() => {
+              setIsViewerOpen(false);
+              setSelectedDocument(null);
+            }}
+            document={selectedDocument}
+          />
+        </div>
+      )}
+    </>
+  );
 };
 
 export default DocumentSelector;
