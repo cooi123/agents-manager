@@ -41,7 +41,7 @@ const ProjectList: React.FC = () => {
   }));
   
   const handleRowClick = (rowId: string) => {
-    navigate(`agents-manager/projects/${rowId}`);
+    navigate(`{/agents-manager/projects/${rowId}`);
   };
   
   if (loading) {
@@ -64,7 +64,7 @@ const ProjectList: React.FC = () => {
           <TableHead>
             <TableRow>
               {headers.map((header) => (
-                <TableHeader key={header.key} {...getHeaderProps({ header })}>
+                <TableHeader  {...getHeaderProps({ header })}>
                   {header.header}
                 </TableHeader>
               ))}
@@ -73,15 +73,12 @@ const ProjectList: React.FC = () => {
           <TableBody>
             {rows.map((row) => (
               <TableRow
-                key={row.id}
-                {...getRowProps({ row })}
-                onClick={() => handleRowClick(row.id)}
-                className="cursor-pointer"
+              
               >
                 {row.cells.map((cell) => (
                   <TableCell key={cell.id}>
                     {cell.info.header === 'actions' ? (
-                      <Link href={`/projects/${row.id}`}>View</Link>
+                      <Link href={`/agents-manager/projects/${row.id}`}>View</Link>
                     ) : (
                       cell.value
                     )}
