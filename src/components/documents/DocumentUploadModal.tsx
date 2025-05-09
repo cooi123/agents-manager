@@ -14,7 +14,7 @@ interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectId: string;
-  onUploadComplete?: () => void;
+  onUploadComplete?: (uploadedIds: string[]) => void;
 }
 
 const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
@@ -55,10 +55,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       if (result.success) {
         setUploadingStatus('complete');
         resetFileUploader();
-        if (onUploadComplete) {
-          setTimeout(() => {
-            onUploadComplete();
-          }, 1000);
+        if (onUploadComplete && result.uploadedFilesId) {
+          onUploadComplete(result.uploadedFilesId);
         }
         return true;
       } else {
@@ -91,74 +89,80 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   }, [isOpen]);
 
   return (
-    <Modal
-      open={isOpen}
-      onRequestClose={onClose}
-      modalHeading="Upload Documents"
-      primaryButtonText="Upload"
-      secondaryButtonText="Cancel"
-      size="lg"
-      primaryButtonDisabled={!files.length}
-      onRequestSubmit={handlePrimarySubmit}
-    >
-      <Stack gap={5}>
-        {error && (
-          <InlineNotification
-            kind="error"
-            title="Error"
-            subtitle={error}
-            hideCloseButton
-          />
-        )}
-        
-        {uploadErrors.length > 0 && (
-          <InlineNotification
-            kind="error"
-            title="Upload Issues"
-            subtitle={uploadErrors.map((err, index) => (
-              <li key={index} style={{ margin: 0, paddingLeft: '1rem' }}>{err}</li>
-            )).join('\n')}
-             
-            
-            hideCloseButton
-          />
-        )}
-        
-        {uploadingStatus === 'complete' && (
-          <InlineNotification
-            kind="success"
-            title="Success"
-            subtitle="Documents uploaded successfully"
-            hideCloseButton
-          />
-        )}
-        
-        {uploadingStatus === 'uploading' && (
-          <ProgressBar
-            label="Upload Progress"
-            helperText="Uploading files..."
-            value={uploadProgress}
-            max={100}
-          />
-        )}
-        
-        <FileUploader
-          ref={fileInputRef}
-          labelTitle="Upload documents"
-          labelDescription="Max file size: 10MB. Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG"
-          buttonLabel="Add files"
-          filenameStatus={uploadingStatus || 'edit'}
-          accept={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png']}
-          multiple
-          onChange={(e: Event) => {
-            const target = e.target as HTMLInputElement;
-            if (target.files) {
-              setFiles(Array.from(target.files));
-            }
-          }}
-        />
-      </Stack>
-    </Modal>
+    <>
+      {isOpen && (
+        <div>
+          <Modal
+            open={isOpen}
+            onRequestClose={onClose}
+            modalHeading="Upload Documents"
+            primaryButtonText="Upload"
+            secondaryButtonText="Cancel"
+            size="lg"
+            primaryButtonDisabled={!files.length}
+            onRequestSubmit={handlePrimarySubmit}
+            modalAriaLabel="Upload Documents Modal"
+           
+          >
+            <Stack gap={5}>
+              {error && (
+                <InlineNotification
+                  kind="error"
+                  title="Error"
+                  subtitle={error}
+                  hideCloseButton
+                />
+              )}
+              
+              {uploadErrors.length > 0 && (
+                <InlineNotification
+                  kind="error"
+                  title="Upload Issues"
+                  subtitle={uploadErrors.join('\n')}
+                  
+                  
+                  hideCloseButton
+                />
+              )}
+              
+              {uploadingStatus === 'complete' && (
+                <InlineNotification
+                  kind="success"
+                  title="Success"
+                  subtitle="Documents uploaded successfully"
+                  hideCloseButton
+                />
+              )}
+              
+              {uploadingStatus === 'uploading' && (
+                <ProgressBar
+                  label="Upload Progress"
+                  helperText="Uploading files..."
+                  value={uploadProgress}
+                  max={100}
+                />
+              )}
+              
+              <FileUploader
+                ref={fileInputRef}
+                labelTitle="Upload documents"
+                labelDescription="Max file size: 10MB. Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG"
+                buttonLabel="Add files"
+                filenameStatus={uploadingStatus || 'edit'}
+                accept={['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.jpg', '.png']}
+                multiple
+                onChange={(e: Event) => {
+                  const target = e.target as HTMLInputElement;
+                  if (target.files) {
+                    setFiles(Array.from(target.files));
+                  }
+                }}
+              />
+            </Stack>
+          </Modal>
+        </div>
+      )}
+    </>
   );
 };
 
