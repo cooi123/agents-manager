@@ -1,48 +1,83 @@
-import React, { useState } from 'react';
-import { Tile, Button } from '@carbon/react';
-import { Play } from '@carbon/icons-react';
-import ServiceUsageForm from './ServiceUsageForm';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Tile, Tag } from '@carbon/react';
+import { Play, ChartLine } from '@carbon/icons-react';
+import type { Database } from '../../types/database.types';
+
+type Service = Database['public']['Tables']['services']['Row'] & {
+  usage: {
+    total_transactions: number;
+    total_tokens: number;
+    total_cost: number;
+    last_used_at: string | null;
+  };
+};
 
 interface ServiceRunCardProps {
-  service: {
-    id: string;
-    name: string;
-    description: string | null;
-    instructions?: string | null;
-    url?: string;
-  };
+  service: Service;
   projectId: string;
 }
 
-const ServiceRunCard: React.FC<ServiceRunCardProps> = ({ service, projectId}) => {
-  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  
+const ServiceRunCard: React.FC<ServiceRunCardProps> = ({ service, projectId }) => {
+  const navigate = useNavigate();
+
+  const handleRunService = () => {
+    navigate(`/projects/${projectId}/services/${service.id}/run`);
+  };
+
+  const handleViewDetails = () => {
+    navigate(`/projects/${projectId}/services/${service.id}`);
+  };
+
   return (
-    <>
-      <Tile className="p-5 h-full flex flex-col">
-        <h3 className="text-lg font-semibold mb-3">{service.name}</h3>
+    <Tile className="h-full flex flex-col">
+      <div className="flex-grow">
+        <h3 className="text-lg font-semibold">{service.name}</h3>
         {service.description && (
-          <p className="text-gray-600 mb-4 flex-grow">{service.description}</p>
+          <p className="text-sm text-gray-600 mt-1">{service.description}</p>
         )}
-        <Button
-          kind="primary"
-          renderIcon={Play}
-          onClick={() => setIsUsageModalOpen(true)}
-          className="mt-auto"
+        
+        <div className="space-y-2 mt-4">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Total Transactions</span>
+            <Tag type="blue">{service.usage.total_transactions}</Tag>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Total Tokens</span>
+            <Tag type="purple">{service.usage.total_tokens.toLocaleString()}</Tag>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Total Cost</span>
+            <Tag type="warm-gray">${service.usage.total_cost.toFixed(2)}</Tag>
+          </div>
+          {service.usage.last_used_at && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Last Used</span>
+              <span className="text-sm">
+                {new Date(service.usage.last_used_at).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between mt-4">
+        <button
+          className="flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          onClick={handleRunService}
         >
+          <Play className="mr-2" size={16} />
           Run Service
-        </Button>
-      </Tile>
-      
-      {isUsageModalOpen && (
-        <ServiceUsageForm 
-          isOpen={isUsageModalOpen}
-          onClose={() => setIsUsageModalOpen(false)}
-          service={service}
-          projectId={projectId} // Assuming projectId is the same as service.id for this example
-        />
-      )}
-    </>
+        </button>
+        <button
+          className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+          onClick={handleViewDetails}
+        >
+          <ChartLine className="mr-2" size={16} />
+          View Details
+        </button>
+      </div>
+    </Tile>
   );
 };
 
