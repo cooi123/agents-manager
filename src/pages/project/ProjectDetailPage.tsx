@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Grid, Column, Tile, Loading, Button, Modal } from '@carbon/react';
 import { Upload, AddAlt } from '@carbon/icons-react';
-import { useProjectStore } from '../store/projectStore';
-import { useAuthStore } from '../store/authStore';
-import DocumentList from '../components/documents/DocumentList';
-import ServiceCard from '../components/services/ServiceCard';
-import ServiceSelector from '../components/services/ServiceSelector';
-import { formatDate } from '../utils/formatters';
-import ServiceRunCard from '../components/services/ServiceRunCard';
+import { useProjectStore } from '../../store/projectStore';
+import { useAuthStore } from '../../store/authStore';
+import DocumentList from '../../components/documents/DocumentList';
+import ServiceSelector from '../../components/services/ServiceSelector';
+import { formatDate } from '../../utils/formatters';
+import ServiceRunCard from '../../components/services/ServiceRunCard';
+import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
 
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +34,13 @@ const ProjectDetailPage: React.FC = () => {
       navigate('/dashboard');
     }
   }, [unauthorized, navigate]);
+  
+  useEffect(() => {
+    return () => {
+      setIsUploadModalOpen(false);
+      setIsServiceSelectorOpen(false);
+    };
+  }, []);
   
   if (loading) {
     return (
@@ -69,7 +76,7 @@ const ProjectDetailPage: React.FC = () => {
             renderIcon={AddAlt}
             onClick={() => setIsServiceSelectorOpen(true)}
           >
-            Manage Services
+            Add Service
           </Button>
         </div>
         
@@ -105,14 +112,24 @@ const ProjectDetailPage: React.FC = () => {
           <DocumentList projectId={currentProject.id} />
         </Tile>
 
+        {isServiceSelectorOpen && (
+          <ServiceSelector 
+            projectId={currentProject.id}
+            open={isServiceSelectorOpen}
+            onClose={() => setIsServiceSelectorOpen(false)}
+          />
+        )}
 
-        
-        {/* Service Selector Modal */}
-        <ServiceSelector 
-          projectId={currentProject.id}
-          open={isServiceSelectorOpen}
-          onClose={() => setIsServiceSelectorOpen(false)}
-        />
+        {isUploadModalOpen && (
+          <DocumentUploadModal
+            isOpen={isUploadModalOpen}
+            onClose={() => setIsUploadModalOpen(false)}
+            projectId={currentProject.id}
+            onUploadComplete={() => {
+              setIsUploadModalOpen(false);
+            }}
+          />
+        )}
       </Column>
     </Grid>
   );

@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Grid, Column, Tile, Loading, Button, Tag, Dropdown, Modal, TextArea, Stack } from '@carbon/react';
 import { ArrowLeft, Download } from '@carbon/icons-react';
-import { supabase } from '../services/supabase';
-import { useServiceUsageStore } from '../store/serviceUsageStore';
-import { useServiceStore } from '../store/serviceStore';
-import { useDocumentStore } from '../store/documentStore';
-import { useProjectStore } from '../store/projectStore';
-import { formatDate, formatFileSize } from '../utils/formatters';
-import ServiceUsageList from '../components/services/ServiceUsageList';
-import type { Database } from '../types/database.types';
+import { supabase } from '../../services/supabase';
+import { useServiceUsageStore } from '../../store/serviceUsageStore';
+import { useServiceStore } from '../../store/serviceStore';
+import { useDocumentStore } from '../../store/documentStore';
+import { useProjectStore } from '../../store/projectStore';
+import { formatDate, formatFileSize } from '../../utils/formatters';
+import ServiceUsageList from '../../components/services/ServiceUsageList';
+import type { Database } from '../../types/database.types';
 
 type Document = Database['public']['Tables']['documents']['Row'];
 
