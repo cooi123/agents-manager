@@ -9,7 +9,6 @@ const ProjectServiceDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { currentProject, loading, fetchProject } = useProjectStore();
   const [unauthorized, setUnauthorized] = useState(false);
-
   useEffect(() => {
     if (projectId && serviceId) {
       fetchProject(projectId).then(project => {

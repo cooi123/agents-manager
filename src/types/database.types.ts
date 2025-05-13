@@ -151,6 +151,7 @@ export interface Database {
           resources_used_cost: number
           resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
           model_name: string | null
+          description: string | null
         }
         Insert: {
           id?: string
@@ -177,6 +178,7 @@ export interface Database {
           resources_used_cost: number
           resource_type: 'llm' | 'embedding' | 'storage' | 'processing'
           model_name?: string | null
+          description?: string | null
         }
         Update: {
           id?: string
@@ -203,6 +205,7 @@ export interface Database {
           resources_used_cost?: number
           resource_type?: 'llm' | 'embedding' | 'storage' | 'processing'
           model_name?: string | null
+          description?: string | null
         }
       }
       project_services: {

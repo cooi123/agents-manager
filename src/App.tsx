@@ -53,8 +53,8 @@ function App() {
           <Route path="personal" element={<PersonalProjectPage />} />
           {/* <Route path="personal/:documentId" element={<PersonalProjectPage />} /> */}
 
-          <Route path="projects/:id" element={<ProjectDetailPage />} />
-          <Route path="projects/:id/services/:serviceId" element={<ProjectServiceDetailPage />} />
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="projects/:projectId/services/:serviceId" element={<ProjectServiceDetailPage />} />
           <Route path="projects/:projectId/services/:serviceId/run" element={<ServiceRunPage />} />
           {/* <Route path="projects/:projectId/documents/:documentId" element={<DocumentPage />} /> */}
           <Route path="profile" element={<ProfilePage />} />

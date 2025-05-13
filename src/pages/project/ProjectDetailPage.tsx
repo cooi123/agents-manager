@@ -11,7 +11,7 @@ import ServiceRunCard from '../../components/services/ServiceRunCard';
 import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
 
 const ProjectDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { currentProject, loading, fetchProject } = useProjectStore();
   const { user } = useAuthStore();
@@ -20,14 +20,14 @@ const ProjectDetailPage: React.FC = () => {
   const [unauthorized, setUnauthorized] = useState(false);
   
   useEffect(() => {
-    if (id && user) {
-      fetchProject(id).then(project => {
+    if (projectId && user) {
+      fetchProject(projectId).then(project => {
         if (!project || project.user_id !== user.id) {
           setUnauthorized(true);
         }
       });
     }
-  }, [id, user, fetchProject]);
+  }, [projectId, user, fetchProject]);
   
   useEffect(() => {
     if (unauthorized) {
