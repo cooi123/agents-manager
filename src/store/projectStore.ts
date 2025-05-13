@@ -231,18 +231,80 @@ export const useProjectStore = create<ProjectState>()(
         }
       },
 
-      fetchServiceTransactions: async (projectId: string, serviceId: string) => {
+      fetchServiceTransactions: async (projectId: string, serviceId: string): Promise<Transaction[]> => {
         try {
           const { data, error } = await supabase
             .from('transactions')
-            .select('*')
+            .select(`
+              id,
+              parent_transaction_id,
+              task_id,
+              user_id,
+              project_id,
+              service_id,
+              task_type,
+              input_data,
+              input_document_urls,
+              status,
+              created_at,
+              updated_at,
+              result_payload,
+              result_document_urls,
+              error_message,
+              description,
+              resources_used,
+              prompt_tokens,
+              completion_tokens,
+              tokens_total,
+              runtime_ms,
+              resources_used_count,
+              resources_used_cost,
+              resource_type,
+              model_name,
+              subtasks:transactions!parent_transaction_id (
+                id,
+                parent_transaction_id,
+                task_id,
+                user_id,
+                project_id,
+                service_id,
+                task_type,
+                input_data,
+                input_document_urls,
+                status,
+                created_at,
+                updated_at,
+                result_payload,
+                result_document_urls,
+                error_message,
+                description,
+                resources_used,
+                prompt_tokens,
+                completion_tokens,
+                tokens_total,
+                runtime_ms,
+                resources_used_count,
+                resources_used_cost,
+                resource_type,
+                model_name
+              )
+            `)
             .eq('project_id', projectId)
             .eq('service_id', serviceId)
+            .is('parent_transaction_id', null) // Only get parent transactions
             .order('created_at', { ascending: false });
 
           if (error) throw error;
-          return data || [];
+
+          // Transform the data to group subtasks with their parents
+          const groupedTransactions = data?.map(transaction => ({
+            ...transaction,
+            subtasks: transaction.subtasks || []
+          })) || [];
+
+          return groupedTransactions;
         } catch (error: any) {
+          console.error('Error in fetchServiceTransactions:', error);
           set({ error: error.message });
           return [];
         }

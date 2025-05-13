@@ -1,43 +1,59 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   Tag,
   CodeSnippet,
   Button,
+  TextInput,
 } from '@carbon/react';
-import { Download } from '@carbon/icons-react';
+import { Download, Edit } from '@carbon/icons-react';
 import { formatDate } from '../../utils/formatters';
 import { useServiceStore } from '../../store/serviceStore';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../../services/supabase';
+import type { Database } from '../../types/database.types';
+
+type Transaction = Database['public']['Tables']['transactions']['Row'] & {
+  subtasks?: Transaction[];
+};
 
 interface ServiceUsageDetailsProps {
   isOpen: boolean;
   onClose: () => void;
-  usage: {
-    id: string;
-    service_id: string;
-    created_at: string;
-    status: string;
-    custom_input: string | null;
-    result: any;
-    document_id: string | null;
-  } | null;
+  usage: Transaction | null;
 }
 
 const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClose, usage }) => {
   const { services } = useServiceStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [description, setDescription] = useState(usage?.description || '');
   
   const service = usage ? services.find(s => s.id === usage.service_id) : null;
 
+  const handleSaveDescription = async () => {
+    if (!usage) return;
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ description })
+        .eq('id', usage.id);
+
+      if (error) throw error;
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating description:', error);
+    }
+  };
+
   const handleDownload = async () => {
-    if (!usage?.document_id) return;
+    if (!usage?.input_document_urls?.length) return;
 
     try {
       const { data: doc } = await supabase
-        .from('personal_documents')
+        .from('documents')
         .select('path, filename')
-        .eq('id', usage.document_id)
+        .eq('id', usage.input_document_urls[0])
         .single();
 
       if (!doc) return;
@@ -91,18 +107,67 @@ const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClo
           </dd>
         </div>
 
-        {usage.custom_input && (
+        <div className="py-4">
+          <dt className="text-sm font-medium text-gray-500 flex items-center justify-between">
+            <span>Description</span>
+            {!isEditing && (
+              <Button
+                kind="ghost"
+                size="sm"
+                renderIcon={Edit}
+                iconDescription="Edit description"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit
+              </Button>
+            )}
+          </dt>
+          <dd className="mt-1">
+            {isEditing ? (
+              <div className="flex gap-2">
+                <TextInput
+                  id="description"
+                  labelText="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="flex-grow"
+                />
+                <Button
+                  kind="primary"
+                  size="sm"
+                  onClick={handleSaveDescription}
+                >
+                  Save
+                </Button>
+                <Button
+                  kind="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setDescription(usage.description || '');
+                    setIsEditing(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-900">{usage.description || 'No description'}</p>
+            )}
+          </dd>
+        </div>
+
+        {usage.input_data && (
           <div className="py-4">
             <dt className="text-sm font-medium text-gray-500">Input</dt>
             <dd className="mt-1">
               <CodeSnippet type="single">
-                {usage.custom_input}
+                {JSON.stringify(usage.input_data)}
               </CodeSnippet>
             </dd>
           </div>
         )}
 
-        {usage.document_id && (
+        {usage.input_document_urls?.length > 0 && (
           <div className="py-4">
             <dt className="text-sm font-medium text-gray-500">Document</dt>
             <dd className="mt-1">
@@ -118,40 +183,40 @@ const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClo
           </div>
         )}
 
-{usage.result && (
-  <div className="py-4">
-    <dt className="text-sm font-medium text-gray-500">Result</dt>
-    <dd className="mt-4">
-      <div className="bg-white rounded-lg shadow p-6">
-        {usage.result.subject && (
-          <h2 className="text-xl font-semibold mb-4">
-            {usage.result.subject}
-          </h2>
+        {usage.result_payload && (
+          <div className="py-4">
+            <dt className="text-sm font-medium text-gray-500">Result</dt>
+            <dd className="mt-4">
+              <div className="bg-white rounded-lg shadow p-6">
+                {typeof usage.result_payload === 'object' && usage.result_payload !== null && 'subject' in usage.result_payload && (
+                  <h2 className="text-xl font-semibold mb-4">
+                    {String(usage.result_payload.subject)}
+                  </h2>
+                )}
+                <div className="prose max-w-none">
+                  {typeof usage.result_payload === 'object' && usage.result_payload !== null && 'raw' in usage.result_payload ? (
+                    // Render markdown if raw content is available
+                    <ReactMarkdown>
+                      {String(usage.result_payload.raw)}
+                    </ReactMarkdown>
+                  ) : typeof usage.result_payload === 'object' && usage.result_payload !== null && 'body' in usage.result_payload ? (
+                    // Render body as markdown if available
+                    <ReactMarkdown>
+                      {String(usage.result_payload.body)}
+                    </ReactMarkdown>
+                  ) : (
+                    // Otherwise pretty-print the JSON
+                    <pre className="bg-gray-50 p-4 rounded overflow-auto">
+                      <code>
+                        {JSON.stringify(usage.result_payload, null, 2)}
+                      </code>
+                    </pre>
+                  )}
+                </div>
+              </div>
+            </dd>
+          </div>
         )}
-        <div className="prose max-w-none">
-          {usage.result.raw ? (
-            // Render markdown if raw content is available
-            <ReactMarkdown>
-              {usage.result.raw}
-            </ReactMarkdown>
-          ) : usage.result.body ? (
-            // Render body as markdown if available
-            <ReactMarkdown>
-              {usage.result.body}
-            </ReactMarkdown>
-          ) : (
-            // Otherwise pretty-print the JSON
-            <pre className="bg-gray-50 p-4 rounded overflow-auto">
-              <code>
-                {JSON.stringify(usage.result, null, 2)}
-              </code>
-            </pre>
-          )}
-        </div>
-      </div>
-    </dd>
-  </div>
-)}
       </dl>
     </Modal>
   );
