@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Grid, Column, Tile, Loading } from '@carbon/react';
+import { Grid, Column, Tile, Loading, Button } from '@carbon/react';
+import { ChevronLeft } from '@carbon/icons-react';
 import { useProjectStore } from '../../store/projectStore';
 import ServiceUsageList from '../../components/services/ServiceUsageList';
 
@@ -51,11 +52,16 @@ const ProjectServiceDetailPage: React.FC = () => {
   return (
     <Grid fullWidth className="p-5">
       <Column lg={16} md={8} sm={4}>
+        <div className="mb-4">
+          <Button kind="ghost" size="sm" renderIcon={ChevronLeft} iconDescription="Back to services" onClick={() => navigate(-1)}>
+            Back to service          </Button>
+        </div>
         <div className="mb-6">
           <h1 className="text-3xl font-bold">{service.name}</h1>
           {service.description && (
             <p className="text-gray-600 mt-2">{service.description}</p>
           )}
+          
         </div>
 
         <Tile className="p-5">

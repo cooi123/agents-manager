@@ -10,8 +10,6 @@ import {
   Loading,
   Tag,
   Button,
-  Accordion,
-  AccordionItem,
 } from '@carbon/react';
 import { Download, Search, ChevronDown } from '@carbon/icons-react';
 import { useProjectStore } from '../../store/projectStore';
@@ -197,58 +195,55 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ projectId, serviceI
                     </TableRow>
                     {hasSubtasks && isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={5} className="p-0">
-                          <Accordion>
-                            {record?.subtasks?.map((subtask) => (
-                              <AccordionItem
-                                key={subtask.id}
-                                title={
+                        <TableCell colSpan={6} className="p-4">
+                          <div className="space-y-4">
+                            {/* Parent task input */}
+                            <div>
+                              <h4 className="font-semibold mb-2">Input</h4>
+                              <pre className="bg-gray-50 p-2 rounded text-sm overflow-x-auto">
+                                {JSON.stringify(record.input_data, null, 2)}
+                              </pre>
+                            </div>
+                            {/* Parent task result */}
+                            <div>
+                              <h4 className="font-semibold mb-2">Result</h4>
+                              <pre className="bg-gray-50 p-2 rounded text-sm overflow-x-auto">
+                                {JSON.stringify(record.result_payload, null, 2)}
+                              </pre>
+                            </div>
+                            {/* Subtasks */}
+                            <div className="space-y-4">
+                              {(record?.subtasks ?? []).map((subtask) => (
+                                <div key={subtask.id} className="border border-gray-200 bg-gray-50 rounded p-4 space-y-2">
                                   <div className="flex items-center gap-2">
                                     <Tag type={
-                                      subtask.status === 'running' ? 'blue' : 
+                                      subtask.status === 'running' ? 'blue' :
                                       subtask.status === 'completed' ? 'green' :
                                       subtask.status === 'failed' ? 'red' :
                                       'cool-gray'
                                     }>
                                       {subtask.status}
                                     </Tag>
-                                    <span className="text-sm">
+                                    <span className="text-sm text-gray-600">
                                       {formatDate(subtask.updated_at || subtask.created_at)}
                                     </span>
                                   </div>
-                                }
-                              >
-                                <div className="p-4 space-y-4">
                                   {subtask.description && (
                                     <div>
-                                      <h4 className="font-semibold mb-2">Description</h4>
+                                      <h4 className="font-semibold">Description</h4>
                                       <p className="text-sm text-gray-700">{subtask.description}</p>
-                                    </div>
-                                  )}
-                                  <div>
-                                    <h4 className="font-semibold mb-2">Input</h4>
-                                    <pre className="bg-gray-50 p-2 rounded text-sm overflow-x-auto">
-                                      {JSON.stringify(subtask.input_data, null, 2)}
-                                    </pre>
-                                  </div>
-                                  {subtask.result_payload && (
-                                    <div>
-                                      <h4 className="font-semibold mb-2">Result</h4>
-                                      <pre className="bg-gray-50 p-2 rounded text-sm overflow-x-auto">
-                                        {JSON.stringify(subtask.result_payload, null, 2)}
-                                      </pre>
                                     </div>
                                   )}
                                   {subtask.error_message && (
                                     <div>
-                                      <h4 className="font-semibold mb-2 text-red-600">Error</h4>
+                                      <h4 className="font-semibold text-red-600">Error</h4>
                                       <p className="text-red-600">{subtask.error_message}</p>
                                     </div>
                                   )}
                                 </div>
-                              </AccordionItem>
-                            ))}
-                          </Accordion>
+                              ))}
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}

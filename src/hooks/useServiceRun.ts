@@ -21,7 +21,7 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
   const { fetchService } = useServiceStore();
   const { currentUser } = useUserStore();
   const { getDocumentUrls } = useDocumentStore();
-  const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL;
+  const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL || 'http://127.0.0.1:8000/service/run';
 
   useEffect(() => {
     const loadService = async () => {

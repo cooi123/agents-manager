@@ -293,15 +293,13 @@ export const useProjectStore = create<ProjectState>()(
             .eq('service_id', serviceId)
             .is('parent_transaction_id', null) // Only get parent transactions
             .order('created_at', { ascending: false });
-
           if (error) throw error;
-
+          
           // Transform the data to group subtasks with their parents
           const groupedTransactions = data?.map(transaction => ({
             ...transaction,
             subtasks: transaction.subtasks || []
           })) || [];
-
           return groupedTransactions;
         } catch (error: any) {
           console.error('Error in fetchServiceTransactions:', error);
