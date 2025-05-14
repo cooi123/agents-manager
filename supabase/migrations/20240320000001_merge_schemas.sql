@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS services (
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     description TEXT,
-    instructions TEXT
+    instructions TEXT,
+    owner_id UUID REFERENCES auth.users(id)
 );
 
 -- Create project_services junction table
@@ -234,6 +235,27 @@ CREATE POLICY "Users can delete own project services"
 CREATE POLICY "Enable read access for all users"
     ON services FOR SELECT
     USING (true);
+
+CREATE POLICY "Only owner can update service"
+    ON services FOR UPDATE
+    USING (
+        auth.uid() = owner_id 
+        OR EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admin can create services"
+    ON services FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE profiles.id = auth.uid() 
+            AND profiles.role = 'admin'
+        )
+    );
 
 -- Documents policies
 CREATE POLICY "Users can read own documents"
