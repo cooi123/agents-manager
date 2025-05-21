@@ -71,6 +71,17 @@ ADD COLUMN IF NOT EXISTS resources_used_cost DECIMAL(10,2) DEFAULT 0 NOT NULL,
 ADD COLUMN IF NOT EXISTS resource_type TEXT CHECK (resource_type IN ('llm', 'embedding', 'storage', 'processing')),
 ADD COLUMN IF NOT EXISTS model_name TEXT;
 
+
+ALTER TABLE public.project_services
+ADD COLUMN IF NOT EXISTS total_tokens_input BIGINT DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS total_tokens_output BIGINT DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS total_tokens BIGINT DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS total_runtime_ms BIGINT DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS total_resources_used_count INTEGER DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS total_resources_used_cost DECIMAL(10,2) DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now() NOT NULL;
+
 -- Drop usages table
 DROP TABLE IF EXISTS public.usages;
 
@@ -82,7 +93,7 @@ BEGIN
     IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
         UPDATE public.project_services
         SET
-            total_tokens = total_tokens + COALESCE(NEW.tokens_total, 0),
+            total_tokens =  total_tokens + COALESCE(NEW.tokens_total, 0),
             total_runtime_ms = total_runtime_ms + COALESCE(NEW.runtime_ms, 0),
             total_resources_used_count = total_resources_used_count + NEW.resources_used_count,
             total_resources_used_cost = total_resources_used_cost + NEW.resources_used_cost,
