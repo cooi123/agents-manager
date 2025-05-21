@@ -35,37 +35,37 @@ const AppHeader: React.FC = () => {
         Agent as Service
       </HeaderName>
       <HeaderNavigation aria-label="Main Navigation">
-        <HeaderMenuItem isCurrentPage={isActive('/dashboard')}>
-          <Link
-            to="/dashboard"
-          >
-            Dashboard
-          </Link>
+        <HeaderMenuItem 
+          style={{ cursor: 'pointer' }}
+          isCurrentPage={isActive('/dashboard')}
+          onClick={() => navigate('/dashboard')}
+        >
+          Dashboard
         </HeaderMenuItem>
 
-        <HeaderMenuItem isCurrentPage={isActive('/personal')}>
-          <Link
-            to="/personal"
-          >
-            Personal Space
-          </Link>
+        <HeaderMenuItem 
+          style={{ cursor: 'pointer' }}
+          isCurrentPage={isActive('/personal')}
+          onClick={() => navigate('/personal')}
+        >
+          Personal Space
         </HeaderMenuItem>
 
-        <HeaderMenuItem isCurrentPage={isActive('/services')}>
-          <Link
-            to="/services"
-          >
-            Service Gallery
-          </Link>
+        <HeaderMenuItem 
+          style={{ cursor: 'pointer' }}
+          isCurrentPage={isActive('/services')}
+          onClick={() => navigate('/services')}
+        >
+          Service Gallery
         </HeaderMenuItem>
 
         {isAdmin() && (
-          <HeaderMenuItem isCurrentPage={isActive('/admin')}>
-            <Link
-              to="/admin"
-            >
-              Admin
-            </Link>
+          <HeaderMenuItem 
+            style={{ cursor: 'pointer' }}
+            isCurrentPage={isActive('/admin')}
+            onClick={() => navigate('/admin')}
+          >
+            Admin
           </HeaderMenuItem>
         )}
       </HeaderNavigation>
