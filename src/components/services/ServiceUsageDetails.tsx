@@ -29,7 +29,7 @@ const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClo
   const [description, setDescription] = useState(usage?.description || '');
   
   const service = usage ? services.find(s => s.id === usage.service_id) : null;
-
+console.log("Resutlt", usage?.result_payload)
   const handleSaveDescription = async () => {
     if (!usage) return;
 
@@ -188,31 +188,39 @@ const ServiceUsageDetails: React.FC<ServiceUsageDetailsProps> = ({ isOpen, onClo
             <dt className="text-sm font-medium text-gray-500">Result</dt>
             <dd className="mt-4">
               <div className="bg-white rounded-lg shadow p-6">
-                {typeof usage.result_payload === 'object' && usage.result_payload !== null && 'subject' in usage.result_payload && (
-                  <h2 className="text-xl font-semibold mb-4">
-                    {String(usage.result_payload.subject)}
-                  </h2>
+                {typeof usage.result_payload === 'object' && usage.result_payload !== null && (
+                  <>
+                    {/* Handle unstructured text (markdown) */}
+                    {'unstructured_text' in usage.result_payload && (
+                      <div className="prose max-w-none">
+                        <ReactMarkdown>
+                          {String(usage.result_payload.unstructured_text)}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                    
+                    {/* Handle structured data */}
+                    {'structured' in usage.result_payload && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">Structured Data</h3>
+                        <pre className="bg-gray-50 p-4 rounded overflow-auto text-sm">
+                          <code>
+                            {JSON.stringify(usage.result_payload.structured, null, 2)}
+                          </code>
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Fallback for other object formats */}
+                    {!('unstructured_text' in usage.result_payload) && !('structured' in usage.result_payload) && (
+                      <pre className="bg-gray-50 p-4 rounded overflow-auto text-sm">
+                        <code>
+                          {JSON.stringify(usage.result_payload, null, 2)}
+                        </code>
+                      </pre>
+                    )}
+                  </>
                 )}
-                <div className="prose max-w-none">
-                  {typeof usage.result_payload === 'object' && usage.result_payload !== null && 'raw' in usage.result_payload ? (
-                    // Render markdown if raw content is available
-                    <ReactMarkdown>
-                      {String(usage.result_payload.raw)}
-                    </ReactMarkdown>
-                  ) : typeof usage.result_payload === 'object' && usage.result_payload !== null && 'body' in usage.result_payload ? (
-                    // Render body as markdown if available
-                    <ReactMarkdown>
-                      {String(usage.result_payload.body)}
-                    </ReactMarkdown>
-                  ) : (
-                    // Otherwise pretty-print the JSON
-                    <pre className="bg-gray-50 p-4 rounded overflow-auto">
-                      <code>
-                        {JSON.stringify(usage.result_payload, null, 2)}
-                      </code>
-                    </pre>
-                  )}
-                </div>
               </div>
             </dd>
           </div>
