@@ -16,7 +16,7 @@ const SERVICE_API_KEY = Deno.env.get('SERVICE_API_KEY')!;
 
 // Result validation schema
 const taskResultSchema = z.object({
-  result_payload: z.record(z.unknown()).default({}),
+  result_payload: z.record(z.unknown()).nullable().default({}),
   result_document_urls: z.array(z.string().url()).nullable().default(null),
   error_message: z.string().nullable().default(null),
   token_usage: z.record(z.unknown()).nullable().default(null),
