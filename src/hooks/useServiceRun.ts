@@ -3,6 +3,9 @@ import { useDocumentStore } from '../store/documentStore';
 import { useUserStore } from '../store/userStore';
 import { useServiceStore } from '../store/serviceStore';
 
+// Add Supabase Edge Function URL
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/task-trigger`;
+
 interface ServiceRunState {
   isRunning: boolean;
   error: string | null;
@@ -21,7 +24,7 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
   const { fetchService } = useServiceStore();
   const { currentUser } = useUserStore();
   const { getDocumentUrls } = useDocumentStore();
-  const SERVICE_URL = import.meta.env.VITE_SERVICE_BROKER_URL || 'http://127.0.0.1:8000/service/run';
+  // trigger edge supabase edge fucntion
 
   useEffect(() => {
     const loadService = async () => {
@@ -65,15 +68,18 @@ export const useServiceRun = (serviceId: string, projectId: string) => {
         serviceUrl: service.url
       };
 
-      console.log(SERVICE_URL);
-      const response = await fetch(SERVICE_URL, {
+      const response = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error('Service request failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Service request failed');
       }
 
       const result = await response.json();
