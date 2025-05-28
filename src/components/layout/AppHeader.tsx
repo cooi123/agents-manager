@@ -31,7 +31,7 @@ const AppHeader: React.FC = () => {
   return (
     <Header aria-label="Agent as Service">
       <SkipToContent />
-      <HeaderName href="/" prefix="">
+      <HeaderName href="/agents-manager" prefix="Agent as Service">
         Agent as Service
       </HeaderName>
       <HeaderNavigation aria-label="Main Navigation">
