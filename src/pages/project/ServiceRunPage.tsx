@@ -171,6 +171,7 @@ const ServiceRunPage: React.FC = () => {
               rows={4}
               invalid={!!inputError && !customInput.trim() && selectedDocumentIds.length === 0}
               invalidText="Input is required if no files are selected"
+              required={true}
             />
           </Tile>
 
