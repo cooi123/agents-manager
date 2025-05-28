@@ -131,7 +131,9 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ projectId, serviceI
             </TableHead>
             <TableBody>
               {rows.map((row) => {
+
                 const record = filteredRecords.find(r => r.id === row.id);
+                const resultDocumentUrls = record?.result_document_urls;
                 const hasSubtasks = record?.subtasks && record.subtasks.length > 0;
                 const isExpanded = expandedItems.has(row.id);
 
@@ -211,6 +213,27 @@ const ServiceUsageList: React.FC<ServiceUsageListProps> = ({ projectId, serviceI
                                 {JSON.stringify(record.result_payload, null, 2)}
                               </pre>
                             </div>
+                            {/* Result Documents */}
+                            {resultDocumentUrls && resultDocumentUrls.length > 0 && (
+                              <div>
+                                <h4 className="font-semibold mb-2">Result Documents</h4>
+                                <div className="space-y-2">
+                                  {resultDocumentUrls.map((url, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                      <Button
+                                        kind="ghost"
+                                        size="sm"
+                                        renderIcon={Download}
+                                        iconDescription="Download Result Document"
+                                        onClick={() => window.open(url, '_blank')}
+                                      >
+                                        Document {index + 1}
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {/* Subtasks */}
                             <div className="space-y-4">
                               {(record?.subtasks ?? []).map((subtask) => (

@@ -183,6 +183,88 @@ console.log("Resutlt", usage?.result_payload)
           </div>
         )}
 
+        {usage.result_document_urls && usage.result_document_urls.length > 0 && (
+          <div className="py-4">
+            <dt className="text-sm font-medium text-gray-500">Result Documents</dt>
+            <dd className="mt-1">
+              <div className="space-y-4">
+                {usage.result_document_urls.map((url, index) => {
+                  const fileExtension = url.split('.').pop()?.toLowerCase();
+                  const isAudio = fileExtension === 'wav' || fileExtension === 'mp3';
+                  const isText = fileExtension === 'txt';
+
+                  return (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          renderIcon={Download}
+                          onClick={() => window.open(url, '_blank')}
+                        >
+                          Result Document {index + 1}
+                        </Button>
+                        <span className="text-sm text-gray-500">({fileExtension?.toUpperCase()})</span>
+                      </div>
+
+                      {/* Preview Section */}
+                      <div className="mt-2">
+                        {isAudio && (
+                          <div className="mt-2">
+                            <audio controls className="w-full">
+                              <source src={url} type={`audio/${fileExtension}`} />
+                              Your browser does not support the audio element.
+                            </audio>
+                          </div>
+                        )}
+                        
+                        {isText && (
+                          <div className="mt-2">
+                            <Button
+                              kind="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(url);
+                                  const text = await response.text();
+                                  // Create a modal or use existing modal to show text
+                                  const textWindow = window.open('', '_blank');
+                                  if (textWindow) {
+                                    textWindow.document.write(`
+                                      <html>
+                                        <head>
+                                          <title>Text Preview</title>
+                                          <style>
+                                            body { 
+                                              font-family: monospace;
+                                              white-space: pre-wrap;
+                                              padding: 20px;
+                                              margin: 0;
+                                            }
+                                          </style>
+                                        </head>
+                                        <body>${text}</body>
+                                      </html>
+                                    `);
+                                  }
+                                } catch (error) {
+                                  console.error('Error loading text file:', error);
+                                }
+                              }}
+                            >
+                              Preview Text
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </dd>
+          </div>
+        )}
+
         {usage.result_payload && (
           <div className="py-4">
             <dt className="text-sm font-medium text-gray-500">Result</dt>
